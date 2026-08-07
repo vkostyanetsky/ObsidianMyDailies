@@ -133,6 +133,6 @@ To develop against a live vault, clone this repository straight into `<your vaul
 
 The numbering logic is independent of the Obsidian API. `renumberFrames(source: string): string` and `collectRenumberEdits(source: string): TextEdit[]` in [src/renumber/edits.ts](src/renumber/edits.ts) are pure functions and carry the bulk of the test suite.
 
-## License
+## Credits
 
-[MIT](LICENSE)
+Scaffolded and reviewed with the help of the [obsidian-plugin-skill](https://github.com/gapmiss/obsidian-plugin-skill) for Claude.
