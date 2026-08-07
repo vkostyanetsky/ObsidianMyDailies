@@ -1,6 +1,6 @@
 # Yoin Toolkit
 
-The only An Obsidian plugin that renumbers section and frame headings in the active note.
+An Obsidian plugin that renumbers section and frame headings in the active note.
 
 > **A personal tool.** This plugin exists to support my own work on one specific project, and its behaviour is shaped entirely by how notes are structured there. It is not meant as a general-purpose Obsidian plugin, and there are no plans to submit it to the community catalogue. You are welcome to use it if your notes happen to follow the same convention, but nothing here is designed around anyone else's workflow.
 
