@@ -1,7 +1,7 @@
 {
-	"name": "yoin-toolkit",
+	"name": "toolbox",
 	"version": "1.0.0",
-	"description": "Renumbers section and frame headings in the active note.",
+	"description": "Renumbers frame headings and renames embedded images in the active note.",
 	"main": "main.js",
 	"private": true,
 	"type": "module",

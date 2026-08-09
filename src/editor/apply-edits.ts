@@ -1,6 +1,6 @@
 import type { Editor, EditorChange, EditorRangeOrCaret } from "obsidian";
 
-import type { TextEdit } from "../renumber/types";
+import type { TextEdit } from "../markdown/edits";
 import { mapPosition } from "./position-mapping";
 import type { LineChange } from "./position-mapping";
 

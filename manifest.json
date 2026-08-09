@@ -1,9 +1,9 @@
 {
-	"id": "yoin-toolkit",
-	"name": "Yoin Toolkit",
+	"id": "toolbox",
+	"name": "Toolbox",
 	"version": "1.0.0",
 	"minAppVersion": "1.5.0",
-	"description": "Renumbers section and frame headings in the active note.",
+	"description": "Renumbers frame headings and renames embedded images in the active note.",
 	"author": "Vlad Kostyanetsky",
 	"isDesktopOnly": false
 }

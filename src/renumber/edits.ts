@@ -1,5 +1,7 @@
+import { applyTextEdits } from "../markdown/edits";
+import type { TextEdit } from "../markdown/edits";
 import { findFrameHeadings } from "./scanner";
-import type { FrameHeading, TextEdit } from "./types";
+import type { FrameHeading } from "./types";
 
 /** The first unsigned decimal integer of a heading's content. */
 const NUMBER_PATTERN = /\d+/;
@@ -77,19 +79,6 @@ export function collectRenumberEdits(source: string): TextEdit[] {
 	}
 
 	return edits;
-}
-
-/** Applies edits to a string. Edits must be sorted and non-overlapping. */
-export function applyTextEdits(source: string, edits: TextEdit[]): string {
-	let result = source;
-
-	// Apply from the end so that earlier offsets stay valid.
-	for (let index = edits.length - 1; index >= 0; index -= 1) {
-		const edit = edits[index];
-		result = result.slice(0, edit.start) + edit.text + result.slice(edit.end);
-	}
-
-	return result;
 }
 
 /**
