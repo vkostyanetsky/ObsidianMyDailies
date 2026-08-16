@@ -5,7 +5,7 @@ export interface Position {
 }
 
 /**
- * A replacement of the `[fromCh, toCh)` range of a single line. Renumbering never
+ * A replacement of the `[fromCh, toCh)` range of a single line. An edit never
  * spans a line break, so every change stays within one line.
  */
 export interface LineChange {

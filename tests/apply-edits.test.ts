@@ -2,7 +2,7 @@ import type { Editor, EditorPosition, EditorTransaction } from "obsidian";
 import { describe, expect, it } from "vitest";
 
 import { applyEditsToEditor } from "../src/editor/apply-edits";
-import { collectRenumberEdits } from "../src/renumber/edits";
+import type { TextEdit } from "../src/markdown/edits";
 
 /**
  * A minimal stand-in for the Obsidian editor, covering just the API surface
@@ -72,61 +72,60 @@ class StubEditor {
 }
 
 describe("applyEditsToEditor", () => {
-	it("renumbers the document in a single transaction", () => {
-		const editor = new StubEditor("## 5 A\n### 7 frame\n### 9 frame\n", [
+	it("applies every edit of the document in a single transaction", () => {
+		const editor = new StubEditor("![[1.png]]\n![[2.png]]\n![[3.png]]\n", [
 			{ anchor: { line: 0, ch: 0 }, head: { line: 0, ch: 0 } },
 		]);
+		const edits: TextEdit[] = [
+			{ start: 3, end: 4, text: "Note 01" },
+			{ start: 14, end: 15, text: "Note 02" },
+			{ start: 25, end: 26, text: "Note 03" },
+		];
 
-		const changed = applyEditsToEditor(
-			editor.asEditor(),
-			collectRenumberEdits(editor.getValue()),
-		);
+		const changed = applyEditsToEditor(editor.asEditor(), edits);
 
 		expect(changed).toBe(true);
 		expect(editor.transactions).toBe(1);
-		expect(editor.value).toBe("## 01 A\n### 01 frame\n### 02 frame\n");
+		expect(editor.value).toBe("![[Note 01.png]]\n![[Note 02.png]]\n![[Note 03.png]]\n");
 	});
 
 	it("does not touch the editor when nothing changes", () => {
-		const editor = new StubEditor("## 01 A\n### 01 frame\n", [
+		const editor = new StubEditor("![[Note 01.png]]\n", [
 			{ anchor: { line: 0, ch: 0 }, head: { line: 0, ch: 0 } },
 		]);
 
-		const changed = applyEditsToEditor(
-			editor.asEditor(),
-			collectRenumberEdits(editor.getValue()),
-		);
+		const changed = applyEditsToEditor(editor.asEditor(), []);
 
 		expect(changed).toBe(false);
 		expect(editor.transactions).toBe(0);
-		expect(editor.value).toBe("## 01 A\n### 01 frame\n");
+		expect(editor.value).toBe("![[Note 01.png]]\n");
 	});
 
-	it("keeps the caret on the text that follows a widened number", () => {
-		// The caret sits on the "f" of "frame"; "7" grows into "01", so the caret
-		// has to move one column to the right to stay on the same character.
-		const editor = new StubEditor("## 01 A\n### 7 frame\n", [
-			{ anchor: { line: 1, ch: 6 }, head: { line: 1, ch: 6 } },
+	it("keeps the caret on the text that follows a widened edit", () => {
+		// The caret sits on the "." of ".png"; "1" grows into "Note 01", so the
+		// caret has to move six columns to the right to stay on the same character.
+		const editor = new StubEditor("first line\n![[1.png]]\n", [
+			{ anchor: { line: 1, ch: 4 }, head: { line: 1, ch: 4 } },
 		]);
 
-		applyEditsToEditor(editor.asEditor(), collectRenumberEdits(editor.getValue()));
+		applyEditsToEditor(editor.asEditor(), [{ start: 14, end: 15, text: "Note 01" }]);
 
-		expect(editor.value).toBe("## 01 A\n### 01 frame\n");
+		expect(editor.value).toBe("first line\n![[Note 01.png]]\n");
 		expect(editor.selections).toEqual([
-			{ anchor: { line: 1, ch: 7 }, head: { line: 1, ch: 7 } },
+			{ anchor: { line: 1, ch: 10 }, head: { line: 1, ch: 10 } },
 		]);
-		expect(editor.value.split("\n")[1][7]).toBe("f");
+		expect(editor.value.split("\n")[1][10]).toBe(".");
 	});
 
 	it("keeps a selection on a line the edits did not touch", () => {
-		const editor = new StubEditor("## 5 A\n### 7 frame\nbody text\n", [
-			{ anchor: { line: 2, ch: 0 }, head: { line: 2, ch: 4 } },
+		const editor = new StubEditor("![[1.png]]\nbody text\n", [
+			{ anchor: { line: 1, ch: 0 }, head: { line: 1, ch: 4 } },
 		]);
 
-		applyEditsToEditor(editor.asEditor(), collectRenumberEdits(editor.getValue()));
+		applyEditsToEditor(editor.asEditor(), [{ start: 3, end: 4, text: "Note 01" }]);
 
 		expect(editor.selections).toEqual([
-			{ anchor: { line: 2, ch: 0 }, head: { line: 2, ch: 4 } },
+			{ anchor: { line: 1, ch: 0 }, head: { line: 1, ch: 4 } },
 		]);
 	});
 });
