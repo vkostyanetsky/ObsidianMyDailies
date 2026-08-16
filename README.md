@@ -81,14 +81,44 @@ Unit tests:
 npm test
 ```
 
-## Installing manually
+## Deploying to a vault
 
-1. Run `npm install && npm run build`.
-2. Create the folder `<your vault>/.obsidian/plugins/toolbox/`.
-3. Copy `main.js` and `manifest.json` into it.
-4. Restart Obsidian (or reload the app), then enable **Toolbox** in **Settings → Community plugins**.
+The vault lives in a `.env` file of your own, which is not in the repository. Copy the example and put your path in it:
 
-To develop against a live vault, clone this repository straight into `<your vault>/.obsidian/plugins/toolbox/`, run `npm run dev`, and reload the plugin after each change.
+```bash
+cp .env.example .env
+```
+
+```ini
+OBSIDIAN_VAULT=D:\Me\Vault
+```
+
+Then build and copy the plugin into that vault in one step:
+
+```bash
+npm run deploy
+```
+
+It writes `main.js` and `manifest.json` to `<vault>/.obsidian/plugins/toolbox/`, creating the folder if it is not there. A different vault can be given for a single run — as the first argument (`node scripts/deploy.mjs "C:\Path\To\Vault"`) or in an `OBSIDIAN_VAULT` environment variable, both of which win over `.env`. A folder without `.obsidian` inside is refused, nothing is copied when `main.js` has not been built yet, and a missing `.env` is reported rather than guessed around.
+
+In VS Code the same thing runs from the command palette (`Ctrl+Shift+P`) → **Tasks: Run Task**:
+
+- **Deploy plugin to Obsidian vault** — builds, then copies;
+- **Copy plugin to Obsidian vault (no build)** — copies whatever `main.js` is there right now, handy next to `npm run dev`.
+
+Both are defined in [.vscode/tasks.json](.vscode/tasks.json) and can be given a keyboard shortcut of their own through **Preferences: Open Keyboard Shortcuts (JSON)**:
+
+```json
+{
+	"key": "ctrl+alt+d",
+	"command": "workbench.action.tasks.runTask",
+	"args": "Deploy plugin to Obsidian vault"
+}
+```
+
+After the first deployment, restart Obsidian (or reload the app) and enable **Toolbox** in **Settings → Community plugins**; after later ones, reloading the plugin is enough.
+
+Alternatively, to develop against a live vault without copying anything, clone this repository straight into `<your vault>/.obsidian/plugins/toolbox/`, run `npm run dev`, and reload the plugin after each change.
 
 ## Project layout
 
@@ -105,6 +135,9 @@ To develop against a live vault, clone this repository straight into `<your vaul
 | [src/images/types.ts](src/images/types.ts) | Data types of the renaming |
 | [src/editor/apply-edits.ts](src/editor/apply-edits.ts) | Applying edits to the Obsidian editor as one transaction |
 | [src/editor/position-mapping.ts](src/editor/position-mapping.ts) | Carrying cursors and selections across the edits |
+| [scripts/deploy.mjs](scripts/deploy.mjs) | Copying the built plugin into a vault |
+| [.env.example](.env.example) | Where the vault path goes, once copied to `.env` |
+| [.vscode/tasks.json](.vscode/tasks.json) | VS Code tasks for deploying |
 | [tests/](tests/) | Unit tests |
 
 The feature is independent of the Obsidian API and carries the bulk of the test suite: the renaming reaches the vault only through the `ImageRenameHost` interface of [src/images/rename.ts](src/images/rename.ts), which [src/images/vault-host.ts](src/images/vault-host.ts) implements against Obsidian and the tests implement in memory.
