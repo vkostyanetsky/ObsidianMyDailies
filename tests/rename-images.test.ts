@@ -22,6 +22,8 @@ interface VaultOptions {
 	failOn?: string;
 	/** Whether the vault rewrites the internal links of the note by itself. */
 	autoUpdateLinks?: boolean;
+	/** Images that other notes link to as well, by vault path. */
+	sharedImages?: string[];
 }
 
 /** An in-memory stand-in for the vault the command runs against. */
@@ -32,6 +34,7 @@ class FakeVault implements ImageRenameHost {
 	readonly renames: string[] = [];
 	private readonly failOn: string | undefined;
 	private readonly autoUpdateLinks: boolean;
+	private readonly sharedImages: string[];
 
 	constructor(options: VaultOptions) {
 		this.noteName = options.noteName ?? "Test";
@@ -39,6 +42,7 @@ class FakeVault implements ImageRenameHost {
 		this.files = [...options.files];
 		this.failOn = options.failOn;
 		this.autoUpdateLinks = options.autoUpdateLinks ?? false;
+		this.sharedImages = options.sharedImages ?? [];
 	}
 
 	readNote(): string {
@@ -60,6 +64,10 @@ class FakeVault implements ImageRenameHost {
 		}
 
 		return path === undefined ? null : { path, extension: fileExtension(path) };
+	}
+
+	notesUsingImage(path: string): string[] {
+		return this.sharedImages.indexOf(path) === -1 ? [] : ["Other note.md"];
 	}
 
 	exists(path: string): boolean {
@@ -130,15 +138,26 @@ async function run(options: VaultOptions): Promise<{ vault: FakeVault; outcome: 
 }
 
 describe("renameNoteImages", () => {
-	it("1. renames a single image", async () => {
+	it("1. gives a single image the name of the note, without a number", async () => {
 		const { vault, outcome } = await run({
 			source: "![[Pasted image 20260808172735.png]]\n",
 			files: ["Test.md", "Pasted image 20260808172735.png"],
 		});
 
-		expect(outcome).toEqual({ kind: "renamed", renamed: 1, skipped: 0 });
-		expect(vault.source).toBe("![[Test 1.png]]\n");
-		expect(vault.files).toContain("Test 1.png");
+		expect(outcome).toEqual({ kind: "renamed", renamed: 1, skipped: 0, shared: 0 });
+		expect(vault.source).toBe("![[Test.png]]\n");
+		expect(vault.files).toContain("Test.png");
+	});
+
+	it("1a. numbers the images again once a second one turns up", async () => {
+		const { vault, outcome } = await run({
+			source: "![[Test.png]]\n![[new.png]]\n",
+			files: ["Test.md", "Test.png", "new.png"],
+		});
+
+		expect(outcome).toEqual({ kind: "renamed", renamed: 2, skipped: 0, shared: 0 });
+		expect(vault.source).toBe("![[Test 1.png]]\n![[Test 2.png]]\n");
+		expect(vault.files.sort()).toEqual(["Test 1.png", "Test 2.png", "Test.md"].sort());
 	});
 
 	it("2. numbers nine images without leading zeros", async () => {
@@ -148,7 +167,7 @@ describe("renameNoteImages", () => {
 			files: ["Test.md", ...names],
 		});
 
-		expect(outcome).toEqual({ kind: "renamed", renamed: 9, skipped: 0 });
+		expect(outcome).toEqual({ kind: "renamed", renamed: 9, skipped: 0, shared: 0 });
 		expect(vault.source).toBe(
 			sequence(9, (index) => `![[Test ${index + 1}.png]]`).join("\n\n"),
 		);
@@ -200,18 +219,18 @@ describe("renameNoteImages", () => {
 			`${sequence(11, (index) => `![[Test ${String(index + 1).padStart(2, "0")}.png]]`).join("\n\n")}\n`,
 		);
 		// "Test 02.png" already sits at its position and is left alone.
-		expect(outcome).toEqual({ kind: "renamed", renamed: 10, skipped: 0 });
+		expect(outcome).toEqual({ kind: "renamed", renamed: 10, skipped: 0, shared: 0 });
 	});
 
 	it("4. leaves an image that already has the right name alone", async () => {
 		const { vault, outcome } = await run({
-			source: "![[Test 1.png]]\n",
-			files: ["Test.md", "Test 1.png"],
+			source: "![[Test.png]]\n",
+			files: ["Test.md", "Test.png"],
 		});
 
-		expect(outcome).toEqual({ kind: "renamed", renamed: 0, skipped: 0 });
+		expect(outcome).toEqual({ kind: "renamed", renamed: 0, skipped: 0, shared: 0 });
 		expect(vault.renames).toEqual([]);
-		expect(vault.source).toBe("![[Test 1.png]]\n");
+		expect(vault.source).toBe("![[Test.png]]\n");
 		expect(describeOutcome(outcome)).toBe("The images are already named correctly.");
 	});
 
@@ -221,7 +240,7 @@ describe("renameNoteImages", () => {
 			files: ["Test.md", "Test 1.png", "other.png", "Test 3.png"],
 		});
 
-		expect(outcome).toEqual({ kind: "renamed", renamed: 1, skipped: 0 });
+		expect(outcome).toEqual({ kind: "renamed", renamed: 1, skipped: 0, shared: 0 });
 		expect(vault.source).toBe("![[Test 1.png]]\n![[Test 2.png]]\n![[Test 3.png]]\n");
 	});
 
@@ -263,7 +282,7 @@ describe("renameNoteImages", () => {
 			files: ["Test.md", "a.png", "b.png"],
 		});
 
-		expect(outcome).toEqual({ kind: "renamed", renamed: 2, skipped: 0 });
+		expect(outcome).toEqual({ kind: "renamed", renamed: 2, skipped: 0, shared: 0 });
 		expect(vault.source).toBe(
 			"![[Test 1.png]]\n![[Test 2.png]]\n![[Test 1.png|300]]\n![[Test 2.png]]\n",
 		);
@@ -275,7 +294,7 @@ describe("renameNoteImages", () => {
 			files: ["Test.md", "a.png", "b.png"],
 		});
 
-		expect(outcome).toEqual({ kind: "renamed", renamed: 2, skipped: 1 });
+		expect(outcome).toEqual({ kind: "renamed", renamed: 2, skipped: 1, shared: 0 });
 		expect(vault.source).toBe("![[Test 1.png]]\n![[gone.png]]\n![[Test 2.png]]\n");
 		expect(describeOutcome(outcome)).toBe("Renamed 2 images, skipped 1 unresolved link.");
 	});
@@ -301,12 +320,21 @@ describe("renameNoteImages", () => {
 			files: ["Test.md", "Test 1.png", "Test 2.png"],
 		});
 
-		expect(outcome).toEqual({ kind: "renamed", renamed: 2, skipped: 0 });
+		expect(outcome).toEqual({ kind: "renamed", renamed: 2, skipped: 0, shared: 0 });
 		expect(vault.source).toBe("![[Test 1.png]]\n![[Test 2.png]]\n");
 		expect(vault.files.slice(1).sort()).toEqual(["Test 1.png", "Test 2.png"]);
-		// Both images move aside before they take their final names.
-		expect(vault.renames).toHaveLength(4);
-		expect(vault.renames.filter((rename) => rename.includes("renaming-image"))).toHaveLength(4);
+		// Only one of the two has to move aside for the other to pass.
+		expect(vault.renames).toHaveLength(3);
+		expect(vault.renames.filter((rename) => rename.includes("renaming-image"))).toHaveLength(2);
+	});
+
+	it("12a. renames straight to the new name when nothing is in the way", async () => {
+		const { vault } = await run({
+			source: "![[a.png]]\n![[b.png]]\n",
+			files: ["Test.md", "a.png", "b.png"],
+		});
+
+		expect(vault.renames).toEqual(["a.png -> Test 1.png", "b.png -> Test 2.png"]);
 	});
 
 	it("12b. shifts a whole run of names by one", async () => {
@@ -337,7 +365,7 @@ describe("renameNoteImages", () => {
 			files: ["Test.md", "a.png", "b.png", "c.png"],
 		});
 
-		expect(outcome).toEqual({ kind: "renamed", renamed: 2, skipped: 0 });
+		expect(outcome).toEqual({ kind: "renamed", renamed: 2, skipped: 0, shared: 0 });
 		expect(vault.source).toBe(
 			[
 				"![[Test 1.png]]",
@@ -416,7 +444,7 @@ describe("renameNoteImages", () => {
 			autoUpdateLinks: true,
 		});
 
-		expect(outcome).toEqual({ kind: "renamed", renamed: 2, skipped: 0 });
+		expect(outcome).toEqual({ kind: "renamed", renamed: 2, skipped: 0, shared: 0 });
 		expect(vault.source).toBe("![[Test 1.png]]\n![[Test 2.png|300]]\n");
 	});
 
@@ -439,7 +467,7 @@ describe("renameNoteImages", () => {
 			files: ["Test.md"],
 		});
 
-		expect(outcome).toEqual({ kind: "renamed", renamed: 0, skipped: 2 });
+		expect(outcome).toEqual({ kind: "renamed", renamed: 0, skipped: 2, shared: 0 });
 		expect(vault.source).toBe("![[gone.png]]\n![[missing.png]]\n");
 		expect(describeOutcome(outcome)).toBe(
 			"The images are already named correctly, skipped 2 unresolved links.",
@@ -453,7 +481,82 @@ describe("renameNoteImages", () => {
 			files: ["My holiday.md", "a.png"],
 		});
 
-		expect(vault.source).toBe("![[My holiday 1.png]]");
-		expect(vault.files).toContain("My holiday 1.png");
+		expect(vault.source).toBe("![[My holiday.png]]");
+		expect(vault.files).toContain("My holiday.png");
+	});
+
+	it("works with a host that reads and writes the note asynchronously", async () => {
+		const vault = new FakeVault({
+			source: "![[a.png]]\n![[b.png]]\n",
+			files: ["Test.md", "a.png", "b.png"],
+		});
+
+		// A note that is not open is read and written through the vault, which
+		// only answers with promises.
+		const outcome = await renameNoteImages({
+			noteName: vault.noteName,
+			readNote: () => Promise.resolve(vault.readNote()),
+			resolveImage: (linkPath) => vault.resolveImage(linkPath),
+			notesUsingImage: (path) => vault.notesUsingImage(path),
+			exists: (path) => vault.exists(path),
+			renameFile: (from, to) => vault.renameFile(from, to),
+			updateNote: (edits) => Promise.resolve(vault.updateNote(edits)),
+		});
+
+		expect(outcome).toEqual({ kind: "renamed", renamed: 2, skipped: 0, shared: 0 });
+		expect(vault.source).toBe("![[Test 1.png]]\n![[Test 2.png]]\n");
+		expect(vault.files.sort()).toEqual(["Test 1.png", "Test 2.png", "Test.md"]);
+	});
+
+	it("reports a note that could not be written back", async () => {
+		const vault = new FakeVault({
+			source: "![[a.png]]\n",
+			files: ["Test.md", "a.png"],
+		});
+
+		const outcome = await renameNoteImages({
+			noteName: vault.noteName,
+			readNote: () => Promise.resolve(vault.readNote()),
+			resolveImage: (linkPath) => vault.resolveImage(linkPath),
+			notesUsingImage: (path) => vault.notesUsingImage(path),
+			exists: (path) => vault.exists(path),
+			renameFile: (from, to) => vault.renameFile(from, to),
+			updateNote: () => Promise.reject(new Error("the note was changed meanwhile")),
+		});
+
+		expect(outcome).toEqual({ kind: "failed", message: "the note was changed meanwhile" });
+
+		// The image is back under the name it had.
+		expect(vault.files.sort()).toEqual(["Test.md", "a.png"]);
+	});
+
+	it("leaves an image that another note uses as well alone", async () => {
+		const { vault, outcome } = await run({
+			source: "![[a.png]]\n![[b.png]]\n![[c.png]]\n",
+			files: ["Test.md", "a.png", "b.png", "c.png"],
+			sharedImages: ["b.png"],
+		});
+
+		expect(outcome).toEqual({ kind: "renamed", renamed: 2, skipped: 0, shared: 1 });
+		expect(vault.source).toBe("![[Test 1.png]]\n![[b.png]]\n![[Test 2.png]]\n");
+		expect(vault.files.sort()).toEqual(["Test 1.png", "Test 2.png", "Test.md", "b.png"].sort());
+		expect(describeOutcome(outcome)).toBe(
+			"Renamed 2 images, skipped 1 image used in other notes.",
+		);
+	});
+
+	it("says what it left alone when every image belongs to other notes as well", async () => {
+		const { vault, outcome } = await run({
+			source: "![[a.png]]\n![[gone.png]]\n",
+			files: ["Test.md", "a.png"],
+			sharedImages: ["a.png"],
+		});
+
+		expect(outcome).toEqual({ kind: "renamed", renamed: 0, skipped: 1, shared: 1 });
+		expect(vault.source).toBe("![[a.png]]\n![[gone.png]]\n");
+		expect(vault.renames).toEqual([]);
+		expect(describeOutcome(outcome)).toBe(
+			"The images are already named correctly, skipped 1 unresolved link and 1 image used in other notes.",
+		);
 	});
 });

@@ -119,7 +119,12 @@ describe("formatImageNumber", () => {
 describe("buildImageName", () => {
 	it("keeps the extension and its case", () => {
 		expect(buildImageName("Test", 3, 11, "JPG")).toBe("Test 03.JPG");
-		expect(buildImageName("My note", 1, 1, "png")).toBe("My note 1.png");
+		expect(buildImageName("My note", 2, 2, "png")).toBe("My note 2.png");
+	});
+
+	it("gives a lone image the name of the note, without a number", () => {
+		expect(buildImageName("My note", 1, 1, "png")).toBe("My note.png");
+		expect(buildImageName("My note", 1, 1, "")).toBe("My note");
 	});
 });
 
@@ -133,6 +138,28 @@ describe("buildRenamePlan", () => {
 			{ file: { path: "a.jpg", extension: "jpg" }, targetPath: "Test 2.jpg" },
 		]);
 		expect(plan.unresolved).toBe(1);
+		expect(plan.shared).toBe(0);
+	});
+
+	it("leaves out an image other notes use, and does not spend a number on it", () => {
+		const source = "![[a.png]] ![[shared.png]] ![[b.png]]";
+		const resolved = resolveAgainst(source, ["a.png", "shared.png", "b.png"]);
+		const plan = buildRenamePlan("Test", resolved, (path) => path === "shared.png");
+
+		expect(plan.entries).toEqual([
+			{ file: { path: "a.png", extension: "png" }, targetPath: "Test 1.png" },
+			{ file: { path: "b.png", extension: "png" }, targetPath: "Test 2.png" },
+		]);
+		expect(plan.shared).toBe(1);
+	});
+
+	it("counts an image other notes use once, however often the note shows it", () => {
+		const source = "![[shared.png]] ![[shared.png]]";
+		const resolved = resolveAgainst(source, ["shared.png"]);
+		const plan = buildRenamePlan("Test", resolved, () => true);
+
+		expect(plan.entries).toEqual([]);
+		expect(plan.shared).toBe(1);
 	});
 });
 
@@ -182,18 +209,18 @@ describe("collectLinkEdits", () => {
 	});
 
 	it("percent-encodes the name of a Markdown link and keeps its title", () => {
-		const source = '![alt](Folder/old.png "Title")';
-		const resolved = resolveAgainst(source, ["Folder/old.png"]);
+		const source = '![alt](Folder/old.png "Title") ![](other.png)';
+		const resolved = resolveAgainst(source, ["Folder/old.png", "other.png"]);
 		const plan = buildRenamePlan("Test", resolved);
 
 		expect(applyTextEdits(source, collectLinkEdits(resolved, plan.entries))).toBe(
-			'![alt](Folder/Test%201.png "Title")',
+			'![alt](Folder/Test%201.png "Title") ![](Test%202.png)',
 		);
 	});
 
 	it("leaves a link that already spells the right name alone", () => {
-		const source = "![[Test 1.png]]";
-		const resolved = resolveAgainst(source, ["Test 1.png"]);
+		const source = "![[Test.png]]";
+		const resolved = resolveAgainst(source, ["Test.png"]);
 
 		expect(collectLinkEdits(resolved, buildRenamePlan("Test", resolved).entries)).toEqual([]);
 	});

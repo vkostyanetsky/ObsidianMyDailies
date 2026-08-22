@@ -1,12 +1,12 @@
 # Toolbox
 
-An Obsidian plugin that renames the images embedded in the active note.
+An Obsidian plugin that renames the images embedded in a note after the note itself.
 
 > **A personal tool.** This plugin exists to support my own work on various projects, and its behaviour is shaped entirely by how I structure my notes for those projects. It is not intended to be a general-purpose Obsidian plugin, and there are no plans to submit it to the community catalogue. You are welcome to use it if your notes happen to follow the same conventions, but nothing here is designed with anyone else's workflow in mind.
 
 ## What it does
 
-The plugin adds one command, which works on the note that is open right now.
+The plugin adds two commands — one for the note that is open right now, one for whole folders — and can keep those folders in order by itself.
 
 ## Rename images in current note
 
@@ -14,6 +14,12 @@ It renames every image embedded in the note after the note itself, numbering the
 
 ```text
 {note name} {number}.{extension}
+```
+
+A note that names a single image after itself needs no numbering to tell its images apart, so that one image is simply:
+
+```text
+{note name}.{extension}
 ```
 
 Before:
@@ -39,21 +45,54 @@ After (with eleven images in the note):
 ### Rules
 
 - Numbers start at `1` and are padded to the width of the total: `1`…`9` for up to nine images, `01`…`99` for up to ninety-nine, `001`…`999` beyond that.
+- A note with a single image to name gives it its own name, without a number — `Test.png`, not `Test 1.png`. As soon as a second image joins the note, both are numbered again.
 - The extension of the image is kept as it is, including its case. Recognised extensions are `png`, `jpg`, `jpeg`, `gif`, `webp`, `bmp`, `svg` and `avif`, compared case-insensitively.
 - Images stay in the folder they are in; only the file name changes.
 - An image used several times in the note is renamed once, takes the number of its first appearance, and does not widen the numbering.
 - Both `![[Image.png]]` and `![](Image.png)` are understood, in any folder, and the alias, the size (`![[Image.png|300]]`) and the title of a link are left untouched.
 - Links inside YAML frontmatter, fenced code blocks and inline code are ignored, as are external addresses and embeds of files that are not images.
+- An image another note links to as well is left alone: it belongs to no single note, so renaming it after this one would only take it away from the others. Such an image takes no number either, and the notice says how many were left out.
 - Links that do not resolve to a file are skipped: they take no number, and the notice says how many were left out.
 - An image that already has the right name for its position is left alone, and so is its link.
 
-The renaming is planned in full before anything happens. If a name the plan needs is already taken by a file outside the note, nothing is renamed at all and a notice names the file. Images that take names from each other — a note where `Test 10.png` has to become `Test 05.png` while another image becomes `Test 10.png` — are handled by moving every image to a temporary name first, so no file is ever overwritten. When a rename fails halfway through, the ones that already happened are taken back.
+The renaming is planned in full before anything happens. If a name the plan needs is already taken by a file outside the note, nothing is renamed at all and a notice names the file. Every image is renamed straight to its new name as soon as that name is free. Images that take names from each other — a note where `Test 10.png` has to become `Test 05.png` while another image becomes `Test 10.png` — would each wait for the other, so one of them is moved to a temporary name to open the ring and the rest follows it. No file is ever overwritten, and an image whose name is free is renamed once, not twice. When a rename fails halfway through, the ones that already happened are taken back.
 
 Renaming goes through the Obsidian file manager, so it honours the **Automatically update internal links** setting: when it is on, Obsidian rewrites the links itself and the plugin only checks the result; when it is off, the plugin rewrites the links of the current note in one undoable step. Links to the images from *other* notes are Obsidian's business either way.
 
+## Rename images in image folders
+
+The same renaming, applied to every note of the **image folders** named in the settings, one note after the other. Notes that are open are rewritten through the editor, so the change stays undoable; the rest are written straight to disk.
+
+A single notice sums the run up — how many images were renamed in how many notes — and names every note that had to be left alone, with the reason.
+
+## Automatic renaming
+
+With **Rename images automatically** switched on, the notes of the image folders are processed without the command being run at all:
+
+- when a note in one of the folders is written to, one and a half seconds after the last change;
+- when a note is created there, or moved there, or renamed — the images are named after the note, so a renamed note gets renamed images;
+- once at startup, after the vault has been read in, for everything that changed while Obsidian was closed.
+
+Renaming writes to the note, which counts as a change and brings the note round for one more look; that look finds nothing left to do and passes in silence. Only runs that renamed something, or that failed, say so in a notice.
+
+Because an image that several notes show is never renamed, two notes sharing an image cannot pull it back and forth between them.
+
+## Debugging output
+
+Everything the plugin does to the vault by itself is written to the developer console (`Ctrl+Shift+I` → **Console**, filter by `[Toolbox]`): the note a change was seen in, the note being looked at, every image rename, every image left alone because other notes use it — named one by one — every note that is written back and how many links were rewritten in it, and, for a run over the folders, how many notes of the vault were considered. Notes that could not be processed come out as warnings.
+
+## Settings
+
+| Setting | What it does |
+| --- | --- |
+| **Image folders** | The folders the two features above work on, subfolders included. Any number of them; each row picks a folder of the vault, and blank rows are ignored. The vault root cannot be given as a folder — a folder has to be named. |
+| **Rename images automatically** | Whether the notes of those folders are processed on their own, as described above. Switching it on changes nothing right away: notes are picked up from the next change onwards, and the folders are gone through when the vault is opened the next time. To go through them at once, run the command. |
+
+Folders are matched without regard to case, and a folder holds everything below it, so `Projects` covers `Projects/2026/Trip.md` as well.
+
 ## Usage
 
-Open a note, then run **Rename images in current note** from the command palette (`Ctrl/Cmd+P`).
+Open a note, then run **Rename images in current note** from the command palette (`Ctrl/Cmd+P`). To go through the image folders instead, run **Rename images in image folders**, or let **Rename images automatically** do it.
 
 ## Building
 
@@ -99,7 +138,7 @@ Then build and copy the plugin into that vault in one step:
 npm run deploy
 ```
 
-It writes `main.js` and `manifest.json` to `<vault>/.obsidian/plugins/toolbox/`, creating the folder if it is not there. A different vault can be given for a single run — as the first argument (`node scripts/deploy.mjs "C:\Path\To\Vault"`) or in an `OBSIDIAN_VAULT` environment variable, both of which win over `.env`. A folder without `.obsidian` inside is refused, nothing is copied when `main.js` has not been built yet, and a missing `.env` is reported rather than guessed around.
+It writes `main.js`, `manifest.json` and `styles.css` to `<vault>/.obsidian/plugins/toolbox/`, creating the folder if it is not there. A different vault can be given for a single run — as the first argument (`node scripts/deploy.mjs "C:\Path\To\Vault"`) or in an `OBSIDIAN_VAULT` environment variable, both of which win over `.env`. A folder without `.obsidian` inside is refused, nothing is copied when `main.js` has not been built yet, and a missing `.env` is reported rather than guessed around.
 
 In VS Code the same thing runs from the command palette (`Ctrl+Shift+P`) → **Tasks: Run Task**:
 
@@ -131,8 +170,14 @@ Alternatively, to develop against a live vault without copying anything, clone t
 | [src/images/paths.ts](src/images/paths.ts) | Vault path arithmetic |
 | [src/images/plan.ts](src/images/plan.ts) | New names, name conflicts and the resulting link edits |
 | [src/images/rename.ts](src/images/rename.ts) | Carrying out a renaming safely, and its outcome |
-| [src/images/vault-host.ts](src/images/vault-host.ts) | Binding the renaming to the vault and the open note |
+| [src/images/folder-watcher.ts](src/images/folder-watcher.ts) | Running over the image folders, by hand and by itself |
+| [src/log.ts](src/log.ts) | Debugging output |
+| [src/images/vault-host.ts](src/images/vault-host.ts) | Binding the renaming to the vault, to the open note and to the file |
 | [src/images/types.ts](src/images/types.ts) | Data types of the renaming |
+| [src/settings/settings.ts](src/settings/settings.ts) | The stored settings, and which notes the folders hold |
+| [src/settings/tab.ts](src/settings/tab.ts) | The settings tab in the Obsidian preferences |
+| [src/settings/folder-suggest.ts](src/settings/folder-suggest.ts) | Suggesting vault folders while one is typed |
+| [styles.css](styles.css) | The little styling the settings tab needs |
 | [src/editor/apply-edits.ts](src/editor/apply-edits.ts) | Applying edits to the Obsidian editor as one transaction |
 | [src/editor/position-mapping.ts](src/editor/position-mapping.ts) | Carrying cursors and selections across the edits |
 | [scripts/deploy.mjs](scripts/deploy.mjs) | Copying the built plugin into a vault |

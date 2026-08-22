@@ -3,7 +3,7 @@
 	"name": "Toolbox",
 	"version": "1.0.0",
 	"minAppVersion": "1.5.0",
-	"description": "Renames the images embedded in the active note.",
+	"description": "Renames the images embedded in a note after the note itself.",
 	"author": "Vlad Kostyanetsky",
 	"isDesktopOnly": false
 }

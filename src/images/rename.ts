@@ -10,7 +10,7 @@ import { fileExtension, joinPath, parentPath } from "./paths";
 import type { RenameEntry, RenamedFile, ResolvedEmbed, VaultFile } from "./types";
 
 /** Prefix of the names images carry while they are being shuffled around. */
-const TEMPORARY_PREFIX = "renaming-image";
+export const TEMPORARY_PREFIX = "renaming-image";
 
 /** How many names are tried before a temporary name is given up on. */
 const TEMPORARY_ATTEMPTS = 10_000;
@@ -23,15 +23,20 @@ export interface ImageRenameHost {
 	/** Name of the note, without its `.md` extension. */
 	readonly noteName: string;
 	/** Current content of the note. */
-	readNote(): string;
+	readNote(): string | Promise<string>;
 	/** Resolves a link path against the note, or `null` for a broken link. */
 	resolveImage(linkPath: string): VaultFile | null;
+	/**
+	 * The other notes that link to the file at the given path, this note left
+	 * out. An image that is not this note's alone is not renamed after it.
+	 */
+	notesUsingImage(path: string): string[];
 	/** Whether anything at all sits at the given vault path. */
 	exists(path: string): boolean;
 	/** Renames the file currently at `from` to `to`. */
 	renameFile(from: string, to: string): Promise<void>;
 	/** Rewrites the note, as one undoable step. */
-	updateNote(edits: TextEdit[]): void;
+	updateNote(edits: TextEdit[]): void | Promise<void>;
 }
 
 /** A rename that has been carried out and can still be taken back. */
@@ -48,7 +53,7 @@ export type ImageRenameOutcome =
 	| { kind: "no-images" }
 	| { kind: "conflict"; path: string }
 	| { kind: "failed"; message: string }
-	| { kind: "renamed"; renamed: number; skipped: number };
+	| { kind: "renamed"; renamed: number; skipped: number; shared: number };
 
 function describeError(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
@@ -98,35 +103,67 @@ export async function revertRenames(
 /**
  * Carries out the plan and returns the renames that were performed.
  *
- * Every file is first moved to a name nothing else can hold and only then given
- * its final name, so that images may swap names among themselves. When a rename
- * fails, the ones that already happened are taken back and the error is
- * rethrown, leaving the vault as it was.
+ * An image is renamed straight to its new name as soon as that name is free.
+ * Only images that stand in each other's way — a note where `Test 10.png` has
+ * to become `Test 05.png` while another image becomes `Test 10.png` — need a
+ * name nothing else can hold in between, and only one of them does, so the
+ * ring is opened and the rest follows it. No file is ever overwritten.
+ *
+ * When a rename fails, the ones that already happened are taken back and the
+ * error is rethrown, leaving the vault as it was.
  */
 export async function executeRenamePlan(
 	host: ImageRenameHost,
 	entries: RenameEntry[],
 ): Promise<RenameOperation[]> {
-	const pending = entries.filter((entry) => entry.targetPath !== entry.file.path);
-	const operations: RenameOperation[] = [];
+	const operations = new Map<string, RenameOperation>();
+
+	/** Moves one image, remembering where it now is. */
+	async function move(entry: RenameEntry, to: string): Promise<void> {
+		const operation = operations.get(entry.file.path);
+
+		await host.renameFile(operation === undefined ? entry.file.path : operation.currentPath, to);
+
+		if (operation === undefined) {
+			operations.set(entry.file.path, { originalPath: entry.file.path, currentPath: to });
+		} else {
+			operation.currentPath = to;
+		}
+	}
+
+	/** Where the image of an entry sits at this moment. */
+	function pathOf(entry: RenameEntry): string {
+		return operations.get(entry.file.path)?.currentPath ?? entry.file.path;
+	}
+
+	let remaining = entries.filter((entry) => entry.targetPath !== entry.file.path);
 
 	try {
-		for (const entry of pending) {
-			const temporary = temporaryPath(host, entry.file.path, operations.length);
-			await host.renameFile(entry.file.path, temporary);
-			operations.push({ originalPath: entry.file.path, currentPath: temporary });
-		}
+		while (remaining.length > 0) {
+			const occupied = new Set(remaining.map(pathOf));
+			const free = remaining.filter((entry) => !occupied.has(entry.targetPath));
 
-		for (let index = 0; index < pending.length; index += 1) {
-			await host.renameFile(operations[index].currentPath, pending[index].targetPath);
-			operations[index].currentPath = pending[index].targetPath;
+			if (free.length === 0) {
+				// Every image left waits for another one to move away first, so one
+				// of them is taken out of the ring.
+				const entry = remaining[0];
+
+				await move(entry, temporaryPath(host, pathOf(entry), operations.size));
+				continue;
+			}
+
+			for (const entry of free) {
+				await move(entry, entry.targetPath);
+			}
+
+			remaining = remaining.filter((entry) => free.indexOf(entry) === -1);
 		}
 	} catch (error) {
-		await revertRenames(host, operations);
+		await revertRenames(host, [...operations.values()]);
 		throw error;
 	}
 
-	return operations;
+	return [...operations.values()];
 }
 
 function renamedFiles(entries: RenameEntry[]): RenamedFile[] {
@@ -137,7 +174,7 @@ function renamedFiles(entries: RenameEntry[]): RenamedFile[] {
 }
 
 async function renameImages(host: ImageRenameHost): Promise<ImageRenameOutcome> {
-	const source = host.readNote();
+	const source = await host.readNote();
 	const resolved: ResolvedEmbed[] = findImageEmbeds(source).map((embed) => ({
 		embed,
 		file: host.resolveImage(embed.path),
@@ -147,7 +184,11 @@ async function renameImages(host: ImageRenameHost): Promise<ImageRenameOutcome> 
 		return { kind: "no-images" };
 	}
 
-	const plan = buildRenamePlan(host.noteName, resolved);
+	const plan = buildRenamePlan(
+		host.noteName,
+		resolved,
+		(path) => host.notesUsingImage(path).length > 0,
+	);
 	const conflict = findRenameConflict(plan.entries, (path) => host.exists(path));
 
 	if (conflict !== null) {
@@ -164,11 +205,11 @@ async function renameImages(host: ImageRenameHost): Promise<ImageRenameOutcome> 
 	}
 
 	try {
-		const current = host.readNote();
+		const current = await host.readNote();
 
 		// Obsidian rewrites internal links itself unless the user turned that off,
 		// in which case the note is still untouched and the planned edits apply.
-		host.updateNote(
+		await host.updateNote(
 			current === source
 				? edits
 				: collectRepairEdits(current, renamedFiles(plan.entries), (path) =>
@@ -180,7 +221,12 @@ async function renameImages(host: ImageRenameHost): Promise<ImageRenameOutcome> 
 		return { kind: "failed", message: describeError(error) };
 	}
 
-	return { kind: "renamed", renamed: operations.length, skipped: plan.unresolved };
+	return {
+		kind: "renamed",
+		renamed: operations.length,
+		skipped: plan.unresolved,
+		shared: plan.shared,
+	};
 }
 
 /**
@@ -204,12 +250,19 @@ export async function renameNoteImages(host: ImageRenameHost | null): Promise<Im
 	}
 }
 
-function describeSkipped(skipped: number): string {
-	if (skipped === 0) {
-		return "";
+/** The part of the notice that lists what was left alone, if anything was. */
+function describeSkipped(skipped: number, shared: number): string {
+	const parts: string[] = [];
+
+	if (skipped > 0) {
+		parts.push(`${skipped} unresolved ${skipped === 1 ? "link" : "links"}`);
 	}
 
-	return `, skipped ${skipped} unresolved ${skipped === 1 ? "link" : "links"}`;
+	if (shared > 0) {
+		parts.push(`${shared} ${shared === 1 ? "image" : "images"} used in other notes`);
+	}
+
+	return parts.length === 0 ? "" : `, skipped ${parts.join(" and ")}`;
 }
 
 /** The notice shown for an outcome. */
@@ -225,7 +278,59 @@ export function describeOutcome(outcome: ImageRenameOutcome): string {
 			return `Could not rename the images: ${outcome.message}`;
 		case "renamed":
 			return outcome.renamed === 0
-				? `The images are already named correctly${describeSkipped(outcome.skipped)}.`
-				: `Renamed ${outcome.renamed} ${outcome.renamed === 1 ? "image" : "images"}${describeSkipped(outcome.skipped)}.`;
+				? `The images are already named correctly${describeSkipped(outcome.skipped, outcome.shared)}.`
+				: `Renamed ${outcome.renamed} ${outcome.renamed === 1 ? "image" : "images"}${describeSkipped(outcome.skipped, outcome.shared)}.`;
 	}
+}
+
+/** What a run over a whole set of notes came to. */
+export interface NotesRenameSummary {
+	/** Number of notes the renaming was applied to. */
+	notes: number;
+	/** Number of images that were renamed across all of them. */
+	renamed: number;
+	/** One line per note that could not be processed, naming the reason. */
+	failures: string[];
+}
+
+/** A summary nothing has been added to yet. */
+export function emptySummary(): NotesRenameSummary {
+	return { notes: 0, renamed: 0, failures: [] };
+}
+
+/** Adds what became of one note to a running summary. */
+export function addToSummary(
+	summary: NotesRenameSummary,
+	noteName: string,
+	outcome: ImageRenameOutcome,
+): void {
+	summary.notes += 1;
+
+	if (outcome.kind === "renamed") {
+		summary.renamed += outcome.renamed;
+		return;
+	}
+
+	if (outcome.kind === "conflict" || outcome.kind === "failed") {
+		summary.failures.push(`${noteName}: ${describeOutcome(outcome)}`);
+	}
+}
+
+/** The notice shown for a run over a set of notes. */
+export function describeNotesRun(summary: NotesRenameSummary): string {
+	if (summary.notes === 0) {
+		return "There are no notes in the image folders.";
+	}
+
+	const notes = `${summary.notes} ${summary.notes === 1 ? "note" : "notes"}`;
+	const headline =
+		summary.renamed === 0
+			? `The images in ${notes} are already named correctly.`
+			: `Renamed ${summary.renamed} ${summary.renamed === 1 ? "image" : "images"} in ${notes}.`;
+
+	if (summary.failures.length === 0) {
+		return headline;
+	}
+
+	return `${headline}\n${summary.failures.join("\n")}`;
 }

@@ -1,7 +1,7 @@
 {
 	"name": "toolbox",
 	"version": "1.0.0",
-	"description": "Renames the images embedded in the active note.",
+	"description": "Renames the images embedded in a note after the note itself.",
 	"main": "main.js",
 	"private": true,
 	"type": "module",

@@ -20,25 +20,35 @@ export function formatImageNumber(value: number, total: number): string {
 
 /**
  * Builds the name an image gets from the name of its note and its position.
- * The extension of the image is preserved, including its case.
+ * A note that names a single image after itself needs no numbering to tell its
+ * images apart, so that image carries the name of the note alone. The extension
+ * of the image is preserved, including its case.
  */
 export function buildImageName(noteName: string, position: number, total: number, extension: string): string {
-	const number = formatImageNumber(position, total);
+	const number = total === 1 ? "" : ` ${formatImageNumber(position, total)}`;
 
-	return extension === "" ? `${noteName} ${number}` : `${noteName} ${number}.${extension}`;
+	return extension === "" ? `${noteName}${number}` : `${noteName}${number}.${extension}`;
 }
 
 /**
  * Turns the resolved embeds of a note into the list of renames to perform.
  *
  * Every image is counted once, at the position of its first appearance, and
- * stays in the folder it is in. Embeds that do not resolve to a vault file are
- * counted as unresolved and take no number.
+ * stays in the folder it is in. A note left with a single image to name gives
+ * it its own name, without a number. Embeds that do not resolve to a vault file are
+ * counted as unresolved and take no number, and neither do images that another
+ * note links to as well: those belong to no single note, so renaming them after
+ * this one would only take them away from the others.
  */
-export function buildRenamePlan(noteName: string, resolved: ResolvedEmbed[]): RenamePlan {
+export function buildRenamePlan(
+	noteName: string,
+	resolved: ResolvedEmbed[],
+	isShared: (path: string) => boolean = () => false,
+): RenamePlan {
 	const files: VaultFile[] = [];
 	const seen = new Set<string>();
 	let unresolved = 0;
+	let shared = 0;
 
 	for (const item of resolved) {
 		if (item.file === null) {
@@ -51,6 +61,12 @@ export function buildRenamePlan(noteName: string, resolved: ResolvedEmbed[]): Re
 		}
 
 		seen.add(item.file.path);
+
+		if (isShared(item.file.path)) {
+			shared += 1;
+			continue;
+		}
+
 		files.push(item.file);
 	}
 
@@ -62,7 +78,7 @@ export function buildRenamePlan(noteName: string, resolved: ResolvedEmbed[]): Re
 		),
 	}));
 
-	return { entries, unresolved };
+	return { entries, unresolved, shared };
 }
 
 /**

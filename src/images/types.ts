@@ -48,6 +48,8 @@ export interface RenamePlan {
 	entries: RenameEntry[];
 	/** Number of image embeds that do not resolve to a vault file. */
 	unresolved: number;
+	/** Number of images that other notes link to as well and are left alone. */
+	shared: number;
 }
 
 /** A file that has been renamed, remembered by both of its names. */
