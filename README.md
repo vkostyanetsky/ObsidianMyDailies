@@ -1,5 +1,7 @@
 # Toolbox
 
+**English** | [Русский](README.ru.md)
+
 An Obsidian plugin that renames the images embedded in a note after the note itself.
 
 > **A personal tool.** This plugin exists to support my own work on various projects, and its behaviour is shaped entirely by how I structure my notes for those projects. It is not intended to be a general-purpose Obsidian plugin, and there are no plans to submit it to the community catalogue. You are welcome to use it if your notes happen to follow the same conventions, but nothing here is designed with anyone else's workflow in mind.
