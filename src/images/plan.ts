@@ -82,11 +82,14 @@ export function buildRenamePlan(
 }
 
 /**
- * Returns the first target path that is already taken by a file outside of the
- * plan, or `null` when the plan can be carried out. Paths the plan itself frees
- * up along the way are not conflicts.
+ * Returns the first entry whose target path is already taken by a file outside
+ * of the plan, or `null` when the plan can be carried out. Paths the plan
+ * itself frees up along the way are not conflicts.
  */
-export function findRenameConflict(entries: RenameEntry[], exists: (path: string) => boolean): string | null {
+export function findRenameConflict(
+	entries: RenameEntry[],
+	exists: (path: string) => boolean,
+): RenameEntry | null {
 	const owned = new Set(entries.map((entry) => entry.file.path));
 
 	for (const entry of entries) {
@@ -95,7 +98,7 @@ export function findRenameConflict(entries: RenameEntry[], exists: (path: string
 		}
 
 		if (exists(entry.targetPath)) {
-			return entry.targetPath;
+			return entry;
 		}
 	}
 

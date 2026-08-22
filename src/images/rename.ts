@@ -6,7 +6,7 @@ import {
 	collectRepairEdits,
 	findRenameConflict,
 } from "./plan";
-import { fileExtension, joinPath, parentPath } from "./paths";
+import { fileExtension, fileName, joinPath, parentPath } from "./paths";
 import type { RenameEntry, RenamedFile, ResolvedEmbed, VaultFile } from "./types";
 
 /** Prefix of the names images carry while they are being shuffled around. */
@@ -51,7 +51,7 @@ export interface RenameOperation {
 export type ImageRenameOutcome =
 	| { kind: "no-note" }
 	| { kind: "no-images" }
-	| { kind: "conflict"; path: string }
+	| { kind: "conflict"; path: string; from: string }
 	| { kind: "failed"; message: string }
 	| { kind: "renamed"; renamed: number; skipped: number; shared: number };
 
@@ -192,7 +192,7 @@ async function renameImages(host: ImageRenameHost): Promise<ImageRenameOutcome> 
 	const conflict = findRenameConflict(plan.entries, (path) => host.exists(path));
 
 	if (conflict !== null) {
-		return { kind: "conflict", path: conflict };
+		return { kind: "conflict", path: conflict.targetPath, from: conflict.file.path };
 	}
 
 	const edits = collectLinkEdits(resolved, plan.entries);
@@ -273,7 +273,11 @@ export function describeOutcome(outcome: ImageRenameOutcome): string {
 		case "no-images":
 			return "No images are embedded in the current note.";
 		case "conflict":
-			return `Nothing was renamed: "${outcome.path}" is already taken by another file.`;
+			return (
+				`Nothing was renamed: "${fileName(outcome.from)}" cannot become ` +
+				`"${fileName(outcome.path)}", which another file of the folder already ` +
+				`carries. That file is not embedded in this note.`
+			);
 		case "failed":
 			return `Could not rename the images: ${outcome.message}`;
 		case "renamed":

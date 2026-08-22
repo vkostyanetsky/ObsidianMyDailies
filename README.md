@@ -8,7 +8,7 @@ An Obsidian plugin that renames the images embedded in a note after the note its
 
 ## What it does
 
-The plugin adds two commands — one for the note that is open right now, one for whole folders — and can keep those folders in order by itself.
+The plugin adds two commands — one for the note that is open right now, one for whole folders — and can run the second one for you when the vault is opened.
 
 ## Rename images in current note
 
@@ -57,7 +57,7 @@ After (with eleven images in the note):
 - Links that do not resolve to a file are skipped: they take no number, and the notice says how many were left out.
 - An image that already has the right name for its position is left alone, and so is its link.
 
-The renaming is planned in full before anything happens. If a name the plan needs is already taken by a file outside the note, nothing is renamed at all and a notice names the file. Every image is renamed straight to its new name as soon as that name is free. Images that take names from each other — a note where `Test 10.png` has to become `Test 05.png` while another image becomes `Test 10.png` — would each wait for the other, so one of them is moved to a temporary name to open the ring and the rest follows it. No file is ever overwritten, and an image whose name is free is renamed once, not twice. When a rename fails halfway through, the ones that already happened are taken back.
+The renaming is planned in full before anything happens. If a name the plan needs is already taken by a file outside the note, nothing is renamed at all and a notice names both the image that wanted the name and the name it could not take — usually a leftover file that sits in the folder without being embedded anywhere. Every image is renamed straight to its new name as soon as that name is free. Images that take names from each other — a note where `Test 10.png` has to become `Test 05.png` while another image becomes `Test 10.png` — would each wait for the other, so one of them is moved to a temporary name to open the ring and the rest follows it. No file is ever overwritten, and an image whose name is free is renamed once, not twice. When a rename fails halfway through, the ones that already happened are taken back.
 
 Renaming goes through the Obsidian file manager, so it honours the **Automatically update internal links** setting: when it is on, Obsidian rewrites the links itself and the plugin only checks the result; when it is off, the plugin rewrites the links of the current note in one undoable step. Links to the images from *other* notes are Obsidian's business either way.
 
@@ -67,34 +67,28 @@ The same renaming, applied to every note of the **image folders** named in the s
 
 A single notice sums the run up — how many images were renamed in how many notes — and names every note that had to be left alone, with the reason.
 
-## Automatic renaming
+## Renaming when the vault is opened
 
-With **Rename images automatically** switched on, the notes of the image folders are processed without the command being run at all:
+With **Rename images when the vault is opened** switched on, the run above happens once by itself: right after Obsidian has read the vault in, the notes of the image folders are gone through and whatever is out of place is put right. It reports only when it renamed something or ran into trouble.
 
-- when a note in one of the folders is written to, one and a half seconds after the last change;
-- when a note is created there, or moved there, or renamed — the images are named after the note, so a renamed note gets renamed images;
-- once at startup, after the vault has been read in, for everything that changed while Obsidian was closed.
-
-Renaming writes to the note, which counts as a change and brings the note round for one more look; that look finds nothing left to do and passes in silence. Only runs that renamed something, or that failed, say so in a notice.
-
-Because an image that several notes show is never renamed, two notes sharing an image cannot pull it back and forth between them.
+That is the only run nobody asked for. The plugin does not listen to the vault: a note is never looked at while it is being written, and images never move under your hands. Everything else happens when a command is run.
 
 ## Debugging output
 
-Everything the plugin does to the vault by itself is written to the developer console (`Ctrl+Shift+I` → **Console**, filter by `[Toolbox]`): the note a change was seen in, the note being looked at, every image rename, every image left alone because other notes use it — named one by one — every note that is written back and how many links were rewritten in it, and, for a run over the folders, how many notes of the vault were considered. Notes that could not be processed come out as warnings.
+Everything the plugin does to the vault is written to the developer console (`Ctrl+Shift+I` → **Console**, filter by `[Toolbox]`): how many notes of the vault a run considered, every image rename, every image left alone because other notes use it — named one by one — and every note that is written back, with the number of links rewritten in it. Notes that could not be processed come out as warnings.
 
 ## Settings
 
 | Setting | What it does |
 | --- | --- |
 | **Image folders** | The folders the two features above work on, subfolders included. Any number of them; each row picks a folder of the vault, and blank rows are ignored. The vault root cannot be given as a folder — a folder has to be named. |
-| **Rename images automatically** | Whether the notes of those folders are processed on their own, as described above. Switching it on changes nothing right away: notes are picked up from the next change onwards, and the folders are gone through when the vault is opened the next time. To go through them at once, run the command. |
+| **Rename images when the vault is opened** | Whether the folders are gone through once at startup. Switching it on changes nothing right away — it takes effect the next time the vault is opened. To go through the folders now, run the command. |
 
 Folders are matched without regard to case, and a folder holds everything below it, so `Projects` covers `Projects/2026/Trip.md` as well.
 
 ## Usage
 
-Open a note, then run **Rename images in current note** from the command palette (`Ctrl/Cmd+P`). To go through the image folders instead, run **Rename images in image folders**, or let **Rename images automatically** do it.
+Open a note, then run **Rename images in current note** from the command palette (`Ctrl/Cmd+P`). To go through the image folders instead, run **Rename images in image folders**. Both work only when they are run; nothing is renamed while a note is being edited.
 
 ## Building
 
@@ -172,7 +166,7 @@ Alternatively, to develop against a live vault without copying anything, clone t
 | [src/images/paths.ts](src/images/paths.ts) | Vault path arithmetic |
 | [src/images/plan.ts](src/images/plan.ts) | New names, name conflicts and the resulting link edits |
 | [src/images/rename.ts](src/images/rename.ts) | Carrying out a renaming safely, and its outcome |
-| [src/images/folder-watcher.ts](src/images/folder-watcher.ts) | Running over the image folders, by hand and by itself |
+| [src/images/folders.ts](src/images/folders.ts) | Running over the notes of the image folders |
 | [src/log.ts](src/log.ts) | Debugging output |
 | [src/images/vault-host.ts](src/images/vault-host.ts) | Binding the renaming to the vault, to the open note and to the file |
 | [src/images/types.ts](src/images/types.ts) | Data types of the renaming |

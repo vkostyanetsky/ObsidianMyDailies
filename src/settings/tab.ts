@@ -28,13 +28,12 @@ export class ToolboxSettingTab extends PluginSettingTab {
 		this.displayFolders();
 
 		new Setting(this.containerEl)
-			.setName("Rename images automatically")
+			.setName("Rename images when the vault is opened")
 			.setDesc(
-				"Rename the images of every note in these folders as the notes are written, " +
-					"and go through the folders once when the vault is opened, instead of " +
-					"running the command by hand. Switching this on takes effect from the " +
-					"next change onwards; to go through the folders right now, run the " +
-					"command.",
+				"Go through the notes of these folders once, right after the vault has been " +
+					"read in, and rename the images that are out of place. Notes are never " +
+					"touched while they are being written; to go through the folders at any " +
+					"other moment, run the command.",
 			)
 			.addToggle((toggle) =>
 				toggle.setValue(this.plugin.settings.autoRenameImages).onChange(async (value) => {

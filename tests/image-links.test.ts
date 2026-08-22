@@ -182,8 +182,11 @@ describe("findRenameConflict", () => {
 		expect(findRenameConflict(swapping, () => true)).toBeNull();
 	});
 
-	it("reports a target taken by a file outside the plan", () => {
-		expect(findRenameConflict(entries, (path) => path === "Test 2.png")).toBe("Test 2.png");
+	it("reports the image whose target is taken by a file outside the plan", () => {
+		expect(findRenameConflict(entries, (path) => path === "Test 2.png")).toEqual({
+			file: { path: "b.png", extension: "png" },
+			targetPath: "Test 2.png",
+		});
 	});
 });
 

@@ -305,12 +305,13 @@ describe("renameNoteImages", () => {
 			files: ["Test.md", "a.png", "b.png", "Test 2.png"],
 		});
 
-		expect(outcome).toEqual({ kind: "conflict", path: "Test 2.png" });
+		expect(outcome).toEqual({ kind: "conflict", path: "Test 2.png", from: "b.png" });
 		expect(vault.renames).toEqual([]);
 		expect(vault.files).toEqual(["Test.md", "a.png", "b.png", "Test 2.png"]);
 		expect(vault.source).toBe("![[a.png]]\n![[b.png]]\n");
 		expect(describeOutcome(outcome)).toBe(
-			'Nothing was renamed: "Test 2.png" is already taken by another file.',
+			'Nothing was renamed: "b.png" cannot become "Test 2.png", which another file of ' +
+				"the folder already carries. That file is not embedded in this note.",
 		);
 	});
 

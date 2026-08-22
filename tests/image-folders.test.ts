@@ -150,7 +150,7 @@ describe("a run over several notes", () => {
 	it("keeps the notes that could not be processed", () => {
 		const summary = summaryOf(
 			["First", { kind: "renamed", renamed: 1, skipped: 0, shared: 0 }],
-			["Second", { kind: "conflict", path: "Notes/Second 1.png" }],
+			["Second", { kind: "conflict", path: "Notes/Second 1.png", from: "Notes/old.png" }],
 			["Third", { kind: "failed", message: "the vault is busy" }],
 		);
 
@@ -158,7 +158,8 @@ describe("a run over several notes", () => {
 		expect(summary.renamed).toBe(1);
 		expect(describeNotesRun(summary)).toBe(
 			'Renamed 1 image in 3 notes.\n' +
-				'Second: Nothing was renamed: "Notes/Second 1.png" is already taken by another file.\n' +
+				'Second: Nothing was renamed: "old.png" cannot become "Second 1.png", which ' +
+				"another file of the folder already carries. That file is not embedded in this note.\n" +
 				"Third: Could not rename the images: the vault is busy",
 		);
 	});

@@ -1,6 +1,6 @@
 import { Notice, Plugin } from "obsidian";
 
-import { ImageFolderWatcher } from "./images/folder-watcher";
+import { renameImagesInFolders } from "./images/folders";
 import { describeNotesRun, describeOutcome, renameNoteImages } from "./images/rename";
 import { createImageRenameHost } from "./images/vault-host";
 import type { ToolboxSettings } from "./settings/settings";
@@ -12,8 +12,6 @@ const SUMMARY_NOTICE_DURATION = 10_000;
 
 export default class ToolboxPlugin extends Plugin {
 	settings: ToolboxSettings = readSettings(null);
-
-	private readonly watcher = new ImageFolderWatcher(this.app, () => this.settings);
 
 	async onload(): Promise<void> {
 		this.settings = readSettings(await this.loadData());
@@ -35,27 +33,15 @@ export default class ToolboxPlugin extends Plugin {
 		});
 
 		this.addSettingTab(new ToolboxSettingTab(this.app, this));
-		this.watcher.register(this);
 
+		// The one run that is not asked for by hand: the image folders are brought
+		// up to date with whatever was written to them while the vault was closed.
+		// Nothing is watched afterwards, so notes are only ever touched on demand.
 		this.app.workspace.onLayoutReady(() => {
-			void this.startWatching();
+			if (this.settings.autoRenameImages) {
+				void this.renameImagesInImageFolders(true);
+			}
 		});
-	}
-
-	onunload(): void {
-		this.watcher.stop();
-	}
-
-	/**
-	 * Brings the image folders up to date with whatever was written to them
-	 * while the vault was closed, and only then starts watching them.
-	 */
-	private async startWatching(): Promise<void> {
-		if (this.settings.autoRenameImages) {
-			await this.renameImagesInImageFolders(true);
-		}
-
-		this.watcher.start();
 	}
 
 	/** Writes the settings back, so that they survive a restart. */
@@ -77,7 +63,7 @@ export default class ToolboxPlugin extends Plugin {
 	 * Does the same for every note of the image folders. A quiet run only speaks
 	 * up when something was renamed or went wrong.
 	 */
-	async renameImagesInImageFolders(quiet = false): Promise<void> {
+	private async renameImagesInImageFolders(quiet = false): Promise<void> {
 		if (!hasFolders(this.settings.imageFolders)) {
 			if (!quiet) {
 				new Notice("No image folders are set. Add one in the settings of the plugin.");
@@ -86,7 +72,7 @@ export default class ToolboxPlugin extends Plugin {
 			return;
 		}
 
-		const summary = await this.watcher.processFolders();
+		const summary = await renameImagesInFolders(this.app, this.settings.imageFolders);
 
 		if (quiet && summary.renamed === 0 && summary.failures.length === 0) {
 			return;
