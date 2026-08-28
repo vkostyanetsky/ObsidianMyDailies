@@ -104,6 +104,7 @@ describe("readSettings", () => {
 
 	it("keeps what was stored", () => {
 		expect(readSettings({ imageFolders: ["Projects"], autoRenameImages: true })).toEqual({
+			...DEFAULT_SETTINGS,
 			imageFolders: ["Projects"],
 			autoRenameImages: true,
 		});
@@ -111,6 +112,7 @@ describe("readSettings", () => {
 
 	it("leaves out folders that are not paths, and mends a broken flag", () => {
 		expect(readSettings({ imageFolders: ["Projects", 7, null], autoRenameImages: "yes" })).toEqual({
+			...DEFAULT_SETTINGS,
 			imageFolders: ["Projects"],
 			autoRenameImages: false,
 		});

@@ -1,7 +1,7 @@
 {
 	"name": "toolbox",
 	"version": "1.0.0",
-	"description": "Renames the images embedded in a note after the note itself.",
+	"description": "Renames the images embedded in a note after the note itself, and adds up the nutrition of a day into its daily note.",
 	"main": "main.js",
 	"private": true,
 	"type": "module",

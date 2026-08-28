@@ -68,23 +68,39 @@ function closesFence(candidate: Fence, open: Fence): boolean {
 	);
 }
 
+/** The lines a YAML frontmatter block is made of, delimiters left out. */
+export interface FrontmatterRange {
+	/** Index of the first line of the body, just past the opening `---`. */
+	start: number;
+	/** Index of the closing `---`, that is one past the last body line. */
+	end: number;
+}
+
+/**
+ * Returns the body of the YAML frontmatter, or `null` when the document does
+ * not start with a complete block.
+ */
+export function findFrontmatterRange(lines: DocumentLine[]): FrontmatterRange | null {
+	if (lines.length === 0 || lines[0].text !== "---") {
+		return null;
+	}
+
+	for (let index = 1; index < lines.length; index += 1) {
+		if (FRONTMATTER_DELIMITER_PATTERN.test(lines[index].text)) {
+			return { start: 1, end: index };
+		}
+	}
+
+	// An unterminated block is not frontmatter — treat it as regular content.
+	return null;
+}
+
 /**
  * Returns the index of the line closing the YAML frontmatter, or `-1` when the
  * document does not start with a complete frontmatter block.
  */
 function findFrontmatterEnd(lines: DocumentLine[]): number {
-	if (lines.length === 0 || lines[0].text !== "---") {
-		return -1;
-	}
-
-	for (let index = 1; index < lines.length; index += 1) {
-		if (FRONTMATTER_DELIMITER_PATTERN.test(lines[index].text)) {
-			return index;
-		}
-	}
-
-	// An unterminated block is not frontmatter — treat it as regular content.
-	return -1;
+	return findFrontmatterRange(lines)?.end ?? -1;
 }
 
 /**
