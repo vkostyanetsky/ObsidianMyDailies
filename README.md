@@ -1,4 +1,4 @@
-# Toolbox
+# Toolbox 🧰 🖼️ 📅
 
 **English** | [Русский](README.ru.md)
 
@@ -6,16 +6,16 @@ An Obsidian plugin holding the odds and ends my own vault needs: renaming the im
 
 > **A personal tool.** This plugin exists to support my own work on various projects, and its behaviour is shaped entirely by how I structure my notes for those projects. It is not intended to be a general-purpose Obsidian plugin, and there are no plans to submit it to the community catalogue. You are welcome to use it if your notes happen to follow the same conventions, but nothing here is designed with anyone else's workflow in mind.
 
-## What it does
+## ✨ What it does
 
 Two features, four commands, and two runs the plugin can make by itself once the vault is opened:
 
 | Feature | Commands |
 | --- | --- |
-| [Renaming images](#rename-images-in-current-note) | **Rename images in current note**, **Rename images in image folders** |
-| [Daily notes](#daily-notes) | **Recalculate properties of current daily note**, **Recalculate properties of all daily notes** |
+| [Renaming images](#-rename-images-in-current-note) | **Rename images in current note**, **Rename images in image folders** |
+| [Daily notes](#-daily-notes) | **Recalculate properties of current daily note**, **Recalculate properties of all daily notes** |
 
-## Rename images in current note
+## 🖼️ Rename images in current note
 
 It renames every image embedded in the note after the note itself, numbering the images in the order they first appear:
 
@@ -66,26 +66,26 @@ The renaming is planned in full before anything happens. If a name the plan need
 
 Renaming goes through the Obsidian file manager, so it honours the **Automatically update internal links** setting: when it is on, Obsidian rewrites the links itself and the plugin only checks the result; when it is off, the plugin rewrites the links of the current note in one undoable step. Links to the images from *other* notes are Obsidian's business either way.
 
-## Rename images in image folders
+## 📁 Rename images in image folders
 
 The same renaming, applied to every note of the **image folders** named in the settings, one note after the other. Notes that are open are rewritten through the editor, so the change stays undoable; the rest are written straight to disk.
 
 A single notice sums the run up — how many images were renamed in how many notes — and names every note that had to be left alone, with the reason.
 
-## Renaming when the vault is opened
+## 🚀 Renaming when the vault is opened
 
 With **Rename images when the vault is opened** switched on, the run above happens once by itself: right after Obsidian has read the vault in, the notes of the image folders are gone through and whatever is out of place is put right. It reports only when it renamed something or ran into trouble.
 
 It is one of the two runs nobody asks for — the other one is the nutrition run below. The plugin does not listen to the vault: a note is never looked at while it is being written, and images never move under your hands. Everything else happens when a command is run.
 
-## Daily notes
+## 📅 Daily notes
 
 The plugin works out a handful of numbers for a day and writes them into the properties of the daily note that stands for it. Each kind of number is a **metric**, switched on and named in the settings on its own:
 
 | Metric | What it counts |
 | --- | --- |
-| [Nutrition](#nutrition) | Calories, protein, fat, carbohydrates and water eaten that day |
-| [Open tasks](#open-tasks) | Tasks of the note that are still to be done |
+| [Nutrition](#-nutrition) | Calories, protein, fat, carbohydrates and water eaten that day |
+| [Open tasks](#-open-tasks) | Tasks of the note that are still to be done |
 
 A daily note is a note of the **daily notes folder** named after a day — `2026-08-28` and the like. Everything else in that folder, an attachment or a drawing named after the day it was made on, is left alone.
 
@@ -128,7 +128,7 @@ The same, for every daily note of the vault. Each metric reads what it needs onc
 
 With **Recalculate when the vault is opened** switched on, the run above happens once by itself, right after Obsidian has read the vault in. It reports only when it wrote something or ran into trouble. Nothing is watched afterwards: records and tasks can be edited all day without a daily note moving under your hands.
 
-## Nutrition
+## 🍎 Nutrition
 
 Adds up what the eating records of a day state: calories, protein, fat, carbohydrates and water.
 
@@ -160,7 +160,7 @@ Rounding per record and rounding the sum are not the same thing: two records of 
 
 A record whose product links to no note is skipped and reported, as is one without an amount; the same goes for a nutrient a product does not state. A day nothing was eaten on comes out as zeroes.
 
-## Open tasks
+## ✅ Open tasks
 
 Counts the tasks of the daily note itself that are still to be done — the lines that start with `- [ ] `:
 
@@ -175,11 +175,11 @@ Only the tasks flush left are counted, so the subtasks of a task do not inflate 
 
 The count comes from the index Obsidian keeps rather than from the text of the note. A run therefore reads no file at all, and a `- [ ] ` inside a fenced code block is not mistaken for a task, because Obsidian does not index it as one either.
 
-## Debugging output
+## 🐞 Debugging output
 
 Everything the plugin does to the vault is written to the developer console (`Ctrl+Shift+I` → **Console**, filter by `[Toolbox]`): how many notes of the vault a run considered, every image rename, every image left alone because other notes use it — named one by one — every note that is written back, with the number of links rewritten in it, how many eating records were read and from where, and every daily note whose properties are written. Notes that could not be processed come out as warnings.
 
-## Settings
+## ⚙️ Settings
 
 | Setting | What it does |
 | --- | --- |
@@ -195,7 +195,7 @@ Everything the plugin does to the vault is written to the developer console (`Ct
 
 Folders are matched without regard to case, and a folder holds everything below it, so `Projects` covers `Projects/2026/Trip.md` as well.
 
-## Usage
+## 🙂 Usage
 
 Open a note, then run **Rename images in current note** from the command palette (`Ctrl/Cmd+P`). To go through the image folders instead, run **Rename images in image folders**.
 
@@ -203,7 +203,7 @@ Open a daily note and run **Recalculate properties of current daily note** to wr
 
 All four work only when they are run. Nothing is renamed while a note is being edited, and no daily note is written unless a value in it would change.
 
-## Building
+## 🔨 Building
 
 Requires Node.js 18 or newer.
 
@@ -229,7 +229,7 @@ Unit tests:
 npm test
 ```
 
-## Deploying to a vault
+## 📦 Deploying to a vault
 
 The vault lives in a `.env` file of your own, which is not in the repository. Copy the example and put your path in it:
 
@@ -268,7 +268,7 @@ After the first deployment, restart Obsidian (or reload the app) and enable **To
 
 Alternatively, to develop against a live vault without copying anything, clone this repository straight into `<your vault>/.obsidian/plugins/toolbox/`, run `npm run dev`, and reload the plugin after each change.
 
-## Project layout
+## 🗂️ Project layout
 
 | Path | Purpose |
 | --- | --- |
@@ -306,6 +306,6 @@ The logic is independent of the Obsidian API and carries the bulk of the test su
 
 A new metric is a `DayMetricSource`: it declares the properties it owns, reads what it needs when the run opens it, and answers what those properties come to for a note. Merging, comparing and writing are not its business. Adding one means a folder under `src/`, a line in `ToolboxPlugin.metrics()` and a section in the settings tab.
 
-## Credits
+## 🙏 Credits
 
 Scaffolded and reviewed with the help of the [obsidian-plugin-skill](https://github.com/gapmiss/obsidian-plugin-skill) for Claude.
