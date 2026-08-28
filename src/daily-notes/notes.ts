@@ -1,15 +1,14 @@
 /*
  * Telling a daily note apart from any other note.
  *
- * The base decides the same way — `date.format("YYYY-MM-DD") == this.file.name`
- * — so a note stands for a day when it is named after one, and the day it
- * stands for is its own name. Anything else in the folder, an attachment or a
- * drawing named after the day it was made on, is left alone.
+ * A note stands for a day when it is named after one, and the day it stands
+ * for is its own name. Anything else in the folder — an attachment, a drawing
+ * named after the day it was made on — is left alone.
  */
 
 import { isInFolder, normalizeFolder } from "../settings/settings";
 
-/** How a daily note is named, matching the format the base compares against. */
+/** How a daily note is named. */
 const DAILY_NOTE_NAME = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 /** The number of days the month of that year has. */

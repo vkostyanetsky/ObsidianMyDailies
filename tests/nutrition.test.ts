@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import { setFrontmatterValues } from "../src/markdown/frontmatter";
-import { dailyNoteDate, isInDailyNotesFolder } from "../src/nutrition/daily-notes";
 import type { NutritionRecord, ProductFacts } from "../src/nutrition/totals";
 import {
 	readDate,
@@ -9,7 +8,6 @@ import {
 	readNumber,
 	recordAmounts,
 	recordsByDay,
-	sameNutrients,
 	sumDay,
 } from "../src/nutrition/totals";
 import { readSettings, DEFAULT_SETTINGS } from "../src/settings/settings";
@@ -204,60 +202,6 @@ describe("recordsByDay", () => {
 	});
 });
 
-describe("sameNutrients", () => {
-	const totals = { calories: 1, protein: 2, fat: 3, carbs: 4, water: 5 };
-
-	it("sees two equal sets", () => {
-		expect(sameNutrients(totals, { ...totals })).toBe(true);
-	});
-
-	it("sees a difference in any nutrient", () => {
-		expect(sameNutrients(totals, { ...totals, water: 6 })).toBe(false);
-	});
-
-	it("never counts a value the note does not carry as equal", () => {
-		expect(sameNutrients(totals, { ...totals, fat: Number.NaN })).toBe(false);
-	});
-});
-
-describe("dailyNoteDate", () => {
-	it("reads the day a note is named after", () => {
-		expect(dailyNoteDate("2026-08-28")).toBe("2026-08-28");
-	});
-
-	it("refuses a note that is not named after a day", () => {
-		expect(dailyNoteDate("2023-11-09 Дорожная карта.excalidraw")).toBeNull();
-		expect(dailyNoteDate("Питание")).toBeNull();
-		expect(dailyNoteDate("2026-08-28-1")).toBeNull();
-	});
-
-	it("refuses a day there is no such thing as", () => {
-		expect(dailyNoteDate("2026-02-30")).toBeNull();
-		expect(dailyNoteDate("2026-13-01")).toBeNull();
-		expect(dailyNoteDate("2026-00-10")).toBeNull();
-	});
-
-	it("takes the leap day of a leap year and refuses it otherwise", () => {
-		expect(dailyNoteDate("2024-02-29")).toBe("2024-02-29");
-		expect(dailyNoteDate("2026-02-29")).toBeNull();
-	});
-});
-
-describe("isInDailyNotesFolder", () => {
-	it("holds a note of the folder", () => {
-		expect(isInDailyNotesFolder("Days/2026-08-28.md", "Days")).toBe(true);
-	});
-
-	it("leaves a note of another folder out", () => {
-		expect(isInDailyNotesFolder("Notes/2026-08-28.md", "Days")).toBe(false);
-	});
-
-	it("takes the whole vault when no folder is named", () => {
-		expect(isInDailyNotesFolder("2026-08-28.md", "")).toBe(true);
-		expect(isInDailyNotesFolder("Notes/2026-08-28.md", " ")).toBe(true);
-	});
-});
-
 describe("setFrontmatterValues", () => {
 	const totals = [
 		{ key: "calories", value: "1387" },
@@ -329,26 +273,65 @@ describe("setFrontmatterValues", () => {
 });
 
 describe("readSettings", () => {
-	it("fills in the nutrition settings of an older installation", () => {
-		const settings = readSettings({ imageFolders: ["Notes"], autoRenameImages: true });
+	it("keeps the nutrition settings that were stored", () => {
+		const settings = readSettings({
+			nutrition: {
+				enabled: true,
+				recordsFolder: "Records",
+				properties: { calories: "ккал", fat: " жиры " },
+			},
+		});
 
-		expect(settings.nutritionRecordsFolder).toBe("");
-		expect(settings.dailyNotesFolder).toBe("");
-		expect(settings.autoUpdateNutrition).toBe(false);
-		expect(settings.nutritionProperties).toEqual(DEFAULT_SETTINGS.nutritionProperties);
-	});
-
-	it("keeps the property names that were stored", () => {
-		const settings = readSettings({ nutritionProperties: { calories: "ккал", fat: " жиры " } });
-
-		expect(settings.nutritionProperties.calories).toBe("ккал");
-		expect(settings.nutritionProperties.fat).toBe("жиры");
-		expect(settings.nutritionProperties.protein).toBe("protein");
+		expect(settings.nutrition.enabled).toBe(true);
+		expect(settings.nutrition.recordsFolder).toBe("Records");
+		expect(settings.nutrition.properties.calories).toBe("ккал");
+		expect(settings.nutrition.properties.fat).toBe("жиры");
+		expect(settings.nutrition.properties.protein).toBe("protein");
 	});
 
 	it("falls back to the default for a property that names nothing", () => {
-		const settings = readSettings({ nutritionProperties: { water: "   " } });
+		const settings = readSettings({ nutrition: { properties: { water: "   " } } });
 
-		expect(settings.nutritionProperties.water).toBe("water");
+		expect(settings.nutrition.properties.water).toBe("water");
+	});
+
+	it("fills in everything an older installation never stored", () => {
+		const settings = readSettings({ imageFolders: ["Notes"], autoRenameImages: true });
+
+		expect(settings.dailyNotes).toEqual(DEFAULT_SETTINGS.dailyNotes);
+		expect(settings.nutrition).toEqual(DEFAULT_SETTINGS.nutrition);
+		expect(settings.openTasks).toEqual(DEFAULT_SETTINGS.openTasks);
+	});
+
+	it("carries the nutrition settings over from where they used to sit", () => {
+		// They were flat at the top before there was more than one thing to
+		// count, and an installation set up back then must keep its folders.
+		const settings = readSettings({
+			nutritionRecordsFolder: "Области/Здоровье/Питание/Записи",
+			dailyNotesFolder: "Области/Задачи/Дни",
+			nutritionProperties: { calories: "ккал" },
+			autoUpdateNutrition: true,
+		});
+
+		expect(settings.nutrition.recordsFolder).toBe("Области/Здоровье/Питание/Записи");
+		expect(settings.dailyNotes.folder).toBe("Области/Задачи/Дни");
+		expect(settings.dailyNotes.autoUpdate).toBe(true);
+		expect(settings.nutrition.properties.calories).toBe("ккал");
+	});
+
+	it("counts a records folder of back then as the metric having been on", () => {
+		expect(readSettings({ nutritionRecordsFolder: "Records" }).nutrition.enabled).toBe(true);
+		expect(readSettings({ nutritionRecordsFolder: "" }).nutrition.enabled).toBe(false);
+		expect(readSettings({}).nutrition.enabled).toBe(false);
+	});
+
+	it("lets the nested settings win over the ones they replaced", () => {
+		const settings = readSettings({
+			nutritionRecordsFolder: "Old",
+			nutrition: { enabled: false, recordsFolder: "New" },
+		});
+
+		expect(settings.nutrition.recordsFolder).toBe("New");
+		expect(settings.nutrition.enabled).toBe(false);
 	});
 });

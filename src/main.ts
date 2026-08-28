@@ -1,19 +1,21 @@
 import { MarkdownView, Notice, Plugin } from "obsidian";
 
+import type { DailyNote, DayMetricSource } from "./daily-notes/metrics";
+import {
+	describeDailyNoteOutcome,
+	describeDailyNotesRun,
+	updateAllDailyNotes,
+	updateDailyNote,
+} from "./daily-notes/metrics";
+import { asDailyNote, createDailyNotesHost, logFailures } from "./daily-notes/vault-host";
 import { renameImagesInFolders } from "./images/folders";
 import { describeNotesRun, describeOutcome, renameNoteImages } from "./images/rename";
 import { createImageRenameHost } from "./images/vault-host";
-import { asDailyNote, createNutritionHost, logFailures } from "./nutrition/vault-host";
-import type { DailyNote, NutritionOutcome } from "./nutrition/update";
-import {
-	describeNutritionOutcome,
-	describeNutritionRun,
-	updateAllDailyNotes,
-	updateDailyNote,
-} from "./nutrition/update";
+import { createNutritionMetric } from "./nutrition/metric";
 import type { ToolboxSettings } from "./settings/settings";
 import { hasFolders, readSettings } from "./settings/settings";
 import { ToolboxSettingTab } from "./settings/tab";
+import { createOpenTasksMetric } from "./tasks/metric";
 
 /** How long the summary of a run over many notes stays on screen. */
 const SUMMARY_NOTICE_DURATION = 10_000;
@@ -43,8 +45,8 @@ export default class ToolboxPlugin extends Plugin {
 		// The command is not offered at all unless the note in front of the user
 		// stands for a day, today's or any other.
 		this.addCommand({
-			id: "recalculate-nutrition",
-			name: "Recalculate nutrition in current daily note",
+			id: "recalculate-daily-note",
+			name: "Recalculate properties of current daily note",
 			checkCallback: (checking) => {
 				const note = this.activeDailyNote();
 
@@ -53,7 +55,7 @@ export default class ToolboxPlugin extends Plugin {
 				}
 
 				if (!checking) {
-					void this.updateNutritionOfDailyNote(note);
+					void this.updateDailyNote(note);
 				}
 
 				return true;
@@ -61,10 +63,10 @@ export default class ToolboxPlugin extends Plugin {
 		});
 
 		this.addCommand({
-			id: "recalculate-nutrition-in-daily-notes",
-			name: "Recalculate nutrition in all daily notes",
+			id: "recalculate-daily-notes",
+			name: "Recalculate properties of all daily notes",
 			callback: () => {
-				void this.updateNutritionOfAllDailyNotes();
+				void this.updateAllDailyNotes();
 			},
 		});
 
@@ -79,8 +81,8 @@ export default class ToolboxPlugin extends Plugin {
 				void this.renameImagesInImageFolders(true);
 			}
 
-			if (this.settings.autoUpdateNutrition) {
-				void this.updateNutritionOfAllDailyNotes(true);
+			if (this.settings.dailyNotes.autoUpdate) {
+				void this.updateAllDailyNotes(true);
 			}
 		});
 	}
@@ -123,6 +125,17 @@ export default class ToolboxPlugin extends Plugin {
 	}
 
 	/**
+	 * The metrics that are switched on and configured, in the order their
+	 * properties are written in. A new one is added here and nowhere else.
+	 */
+	private metrics(): DayMetricSource[] {
+		return [
+			createNutritionMetric(this.app, this.settings),
+			createOpenTasksMetric(this.app, this.settings),
+		].filter((source): source is DayMetricSource => source !== null);
+	}
+
+	/**
 	 * The note in front of the user, but only when it stands for a day and sits
 	 * where the daily notes are kept. Anything else is not a daily note, and the
 	 * command that works on one is not offered for it.
@@ -137,44 +150,36 @@ export default class ToolboxPlugin extends Plugin {
 		return asDailyNote(this.app, view.file, this.settings);
 	}
 
-	/** Works out the day of one daily note and reports what came of it. */
-	private async updateNutritionOfDailyNote(note: DailyNote): Promise<void> {
-		const host = createNutritionHost(this.app, this.settings);
+	/** Works out the properties of one daily note and reports the result. */
+	private async updateDailyNote(note: DailyNote): Promise<void> {
+		const host = createDailyNotesHost(this.app, this.settings);
+		const outcome = await updateDailyNote(host, this.metrics(), note);
 
-		if (host === null) {
-			new Notice(describeNutritionOutcome({ kind: "not-configured" }));
-
-			return;
-		}
-
-		const outcome: NutritionOutcome = await updateDailyNote(host, note);
-
-		new Notice(describeNutritionOutcome(outcome));
+		new Notice(describeDailyNoteOutcome(outcome));
 	}
 
 	/**
 	 * Does the same for every daily note of the vault. A quiet run only speaks up
 	 * when something was written or went wrong.
 	 */
-	private async updateNutritionOfAllDailyNotes(quiet = false): Promise<void> {
-		const host = createNutritionHost(this.app, this.settings);
+	private async updateAllDailyNotes(quiet = false): Promise<void> {
+		const host = createDailyNotesHost(this.app, this.settings);
+		const outcome = await updateAllDailyNotes(host, this.metrics());
 
-		if (host === null) {
+		if ("kind" in outcome) {
 			if (!quiet) {
-				new Notice(describeNutritionOutcome({ kind: "not-configured" }));
+				new Notice(describeDailyNoteOutcome(outcome));
 			}
 
 			return;
 		}
 
-		const summary = await updateAllDailyNotes(host);
+		logFailures(outcome.failures);
 
-		logFailures(summary.failures);
-
-		if (quiet && summary.written === 0 && summary.failures.length === 0) {
+		if (quiet && outcome.written === 0 && outcome.failures.length === 0) {
 			return;
 		}
 
-		new Notice(describeNutritionRun(summary), SUMMARY_NOTICE_DURATION);
+		new Notice(describeDailyNotesRun(outcome), SUMMARY_NOTICE_DURATION);
 	}
 }

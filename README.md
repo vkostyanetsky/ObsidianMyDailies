@@ -2,7 +2,7 @@
 
 **English** | [Русский](README.ru.md)
 
-An Obsidian plugin holding the odds and ends my own vault needs: renaming the images embedded in a note after the note itself, and adding up what was eaten on a day into the daily note of that day.
+An Obsidian plugin holding the odds and ends my own vault needs: renaming the images embedded in a note after the note itself, and working out the numbers a daily note carries — what was eaten that day, how many tasks are still open.
 
 > **A personal tool.** This plugin exists to support my own work on various projects, and its behaviour is shaped entirely by how I structure my notes for those projects. It is not intended to be a general-purpose Obsidian plugin, and there are no plans to submit it to the community catalogue. You are welcome to use it if your notes happen to follow the same conventions, but nothing here is designed with anyone else's workflow in mind.
 
@@ -13,7 +13,7 @@ Two features, four commands, and two runs the plugin can make by itself once the
 | Feature | Commands |
 | --- | --- |
 | [Renaming images](#rename-images-in-current-note) | **Rename images in current note**, **Rename images in image folders** |
-| [Nutrition](#nutrition) | **Recalculate nutrition in current daily note**, **Recalculate nutrition in all daily notes** |
+| [Daily notes](#daily-notes) | **Recalculate properties of current daily note**, **Recalculate properties of all daily notes** |
 
 ## Rename images in current note
 
@@ -78,17 +78,64 @@ With **Rename images when the vault is opened** switched on, the run above happe
 
 It is one of the two runs nobody asks for — the other one is the nutrition run below. The plugin does not listen to the vault: a note is never looked at while it is being written, and images never move under your hands. Everything else happens when a command is run.
 
+## Daily notes
+
+The plugin works out a handful of numbers for a day and writes them into the properties of the daily note that stands for it. Each kind of number is a **metric**, switched on and named in the settings on its own:
+
+| Metric | What it counts |
+| --- | --- |
+| [Nutrition](#nutrition) | Calories, protein, fat, carbohydrates and water eaten that day |
+| [Open tasks](#open-tasks) | Tasks of the note that are still to be done |
+
+A daily note is a note of the **daily notes folder** named after a day — `2026-08-28` and the like. Everything else in that folder, an attachment or a drawing named after the day it was made on, is left alone.
+
+### What is written
+
+Every metric that is switched on is asked about the note, and their properties are written together, in one go:
+
+```yaml
+---
+weight:
+steps:
+gym:
+timestamp: 1755706724
+calories: 1387
+protein: 72
+fat: 57
+carbs: 143
+water: 1600
+tasks: 3
+---
+```
+
+Only those lines are touched. A property that is already there keeps its place, one that is missing is appended to the block, and everything else — order, spacing, quoting, the properties the plugin knows nothing about — is left byte for byte as it was.
+
+**A note is only written when a value would come out different from what it already says.** A run over a vault of a thousand days that changed nothing writes nothing, and leaves a thousand modification dates alone. It is also why the metrics are all asked before anything is written: two metrics that each wrote for themselves would touch the same note twice.
+
+For the same reason two metrics must not be pointed at the same property — they would overwrite each other on every run, and the note would never settle. A run that finds such a clash writes nothing at all and names the property.
+
+### Recalculate properties of current daily note
+
+Works out every switched-on metric for the note that is open and writes the lot. A notice reports what each of them came to.
+
+The command is not offered at all unless the note in front of you stands for a day — today's or any other. On anything else it does not appear in the command palette, and a shortcut bound to it does nothing.
+
+### Recalculate properties of all daily notes
+
+The same, for every daily note of the vault. Each metric reads what it needs once, so a run does not walk the same records again for every note. A single notice sums it up: how many notes were written, out of how many.
+
+### Recalculating when the vault is opened
+
+With **Recalculate when the vault is opened** switched on, the run above happens once by itself, right after Obsidian has read the vault in. It reports only when it wrote something or ran into trouble. Nothing is watched afterwards: records and tasks can be edited all day without a daily note moving under your hands.
+
 ## Nutrition
 
-The plugin adds up what the eating records of a day state and writes the totals — calories, protein, fat, carbohydrates and water — into the properties of the daily note that stands for that day.
+Adds up what the eating records of a day state: calories, protein, fat, carbohydrates and water.
 
 ### What is read
 
-Three kinds of note take part:
-
 - **Records** — every note of the **nutrition records folder**, subfolders included. A record states the day it belongs to in `date`, links the product in `product` and states how much of it was eaten in `quantity`.
 - **Products** — whatever note a record's `product` links to, wherever it sits. A product states `calories`, `protein`, `fat`, `carbs` and `water` for one `unit_size` of itself.
-- **Daily notes** — the notes of the **daily notes folder** that are named after a day, `2026-08-28` and the like. Everything else in that folder — an attachment, a drawing named after the day it was made on — is left alone.
 
 A record, and the product it links to:
 
@@ -113,45 +160,24 @@ Rounding per record and rounding the sum are not the same thing: two records of 
 
 A record whose product links to no note is skipped and reported, as is one without an amount; the same goes for a nutrient a product does not state. A day nothing was eaten on comes out as zeroes.
 
-### What is written
+## Open tasks
 
-The totals go into the properties of the daily note, under the names given in the settings:
+Counts the tasks of the daily note itself that are still to be done — the lines that start with `- [ ] `:
 
-```yaml
----
-weight:
-steps:
-gym:
-timestamp: 1755706724
-calories: 1387
-protein: 72
-fat: 57
-carbs: 143
-water: 1600
----
+```text
+- [ ] Write the morning stand-up        counted
+- [x] Read the mail                     done
+- [/] Draft the release notes           anything but a space is done
+    - [ ] Ask about the event ids       nested under a task, not counted
 ```
 
-Only those lines are touched. A property that is already there keeps its place, one that is missing is appended to the block, and everything else — order, spacing, quoting, the properties the plugin knows nothing about — is left byte for byte as it was.
+Only the tasks flush left are counted, so the subtasks of a task do not inflate the number.
 
-**A note is only written when a number would come out different from what it already says.** A run over a vault of a thousand days that changed nothing writes nothing, and leaves a thousand modification dates alone.
-
-### Recalculate nutrition in current daily note
-
-Works out the day of the note that is open and writes it. A notice reports the totals, how many records they came from, and any product link that answered to no note.
-
-The command is not offered at all unless the note in front of you stands for a day — today's or any other. On anything else it does not appear in the command palette, and a shortcut bound to it does nothing.
-
-### Recalculate nutrition in all daily notes
-
-The same, for every daily note of the vault. The records are read once and grouped by day, so the run does not walk them again for every note. A single notice sums it up: how many notes were written, out of how many.
-
-### Nutrition when the vault is opened
-
-With **Recalculate nutrition when the vault is opened** switched on, the run above happens once by itself, right after Obsidian has read the vault in. It reports only when it wrote something or ran into trouble. Nothing is watched afterwards: records can be added and edited all day without a daily note moving under your hands.
+The count comes from the index Obsidian keeps rather than from the text of the note. A run therefore reads no file at all, and a `- [ ] ` inside a fenced code block is not mistaken for a task, because Obsidian does not index it as one either.
 
 ## Debugging output
 
-Everything the plugin does to the vault is written to the developer console (`Ctrl+Shift+I` → **Console**, filter by `[Toolbox]`): how many notes of the vault a run considered, every image rename, every image left alone because other notes use it — named one by one — every note that is written back, with the number of links rewritten in it, how many eating records were read and from where, and every daily note whose totals are written. Notes that could not be processed come out as warnings.
+Everything the plugin does to the vault is written to the developer console (`Ctrl+Shift+I` → **Console**, filter by `[Toolbox]`): how many notes of the vault a run considered, every image rename, every image left alone because other notes use it — named one by one — every note that is written back, with the number of links rewritten in it, how many eating records were read and from where, and every daily note whose properties are written. Notes that could not be processed come out as warnings.
 
 ## Settings
 
@@ -159,10 +185,13 @@ Everything the plugin does to the vault is written to the developer console (`Ct
 | --- | --- |
 | **Image folders** | The folders the two features above work on, subfolders included. Any number of them; each row picks a folder of the vault, and blank rows are ignored. The vault root cannot be given as a folder — a folder has to be named. |
 | **Rename images when the vault is opened** | Whether the folders are gone through once at startup. Switching it on changes nothing right away — it takes effect the next time the vault is opened. To go through the folders now, run the command. |
-| **Nutrition records folder** | The folder the eating records are kept in, subfolders included. Left empty, nothing is summed up and both nutrition commands report as much. |
 | **Daily notes folder** | The folder the daily notes are kept in. Left empty, the folder of the core **Daily notes** plugin is used. |
-| **Calories**, **Protein**, **Fat**, **Carbohydrates**, **Water** | The properties of the daily note each total is written to. A property left blank falls back to its default (`calories`, `protein`, `fat`, `carbs`, `water`). |
-| **Recalculate nutrition when the vault is opened** | Whether every daily note is worked out once at startup. As above, switching it on takes effect the next time the vault is opened. |
+| **Recalculate when the vault is opened** | Whether every daily note is worked out once at startup. As above, switching it on takes effect the next time the vault is opened. |
+| **Count nutrition** | Whether what was eaten is counted for a daily note at all. |
+| **Nutrition records folder** | The folder the eating records are kept in, subfolders included. Without it nothing is summed up, and the commands report as much. |
+| **Calories**, **Protein**, **Fat**, **Carbohydrates**, **Water** | The properties of the daily note each total is written to. Blank falls back to `calories`, `protein`, `fat`, `carbs`, `water`. |
+| **Count open tasks** | Whether the open tasks of a daily note are counted at all. |
+| **Open tasks** | The property the number of open tasks is written to. Blank falls back to `tasks`. |
 
 Folders are matched without regard to case, and a folder holds everything below it, so `Projects` covers `Projects/2026/Trip.md` as well.
 
@@ -170,9 +199,9 @@ Folders are matched without regard to case, and a folder holds everything below 
 
 Open a note, then run **Rename images in current note** from the command palette (`Ctrl/Cmd+P`). To go through the image folders instead, run **Rename images in image folders**.
 
-Open a daily note and run **Recalculate nutrition in current daily note** to write its totals, or **Recalculate nutrition in all daily notes** to go through the whole vault.
+Open a daily note and run **Recalculate properties of current daily note** to write its numbers, or **Recalculate properties of all daily notes** to go through the whole vault.
 
-All four work only when they are run. Nothing is renamed while a note is being edited, and no daily note is written unless a number in it would change.
+All four work only when they are run. Nothing is renamed while a note is being edited, and no daily note is written unless a value in it would change.
 
 ## Building
 
@@ -252,10 +281,13 @@ Alternatively, to develop against a live vault without copying anything, clone t
 | [src/images/rename.ts](src/images/rename.ts) | Carrying out a renaming safely, and its outcome |
 | [src/images/folders.ts](src/images/folders.ts) | Running over the notes of the image folders |
 | [src/markdown/frontmatter.ts](src/markdown/frontmatter.ts) | Writing single properties without reformatting the rest |
+| [src/daily-notes/notes.ts](src/daily-notes/notes.ts) | Telling a daily note apart from any other note |
+| [src/daily-notes/metrics.ts](src/daily-notes/metrics.ts) | What a metric is, and the run that merges them into one write |
+| [src/daily-notes/vault-host.ts](src/daily-notes/vault-host.ts) | Binding a run to the daily notes of the vault |
 | [src/nutrition/totals.ts](src/nutrition/totals.ts) | Reading the records and summing up a day |
-| [src/nutrition/daily-notes.ts](src/nutrition/daily-notes.ts) | Telling a daily note apart from any other note |
-| [src/nutrition/update.ts](src/nutrition/update.ts) | Writing a day into its note, and running over all of them |
-| [src/nutrition/vault-host.ts](src/nutrition/vault-host.ts) | Binding the sums to the records, the products and the daily notes |
+| [src/nutrition/metric.ts](src/nutrition/metric.ts) | Nutrition as a metric: the records, the products, the totals |
+| [src/tasks/open-tasks.ts](src/tasks/open-tasks.ts) | Which list items count as a task still to be done |
+| [src/tasks/metric.ts](src/tasks/metric.ts) | Open tasks as a metric, off Obsidian's index |
 | [src/log.ts](src/log.ts) | Debugging output |
 | [src/images/vault-host.ts](src/images/vault-host.ts) | Binding the renaming to the vault, to the open note and to the file |
 | [src/images/types.ts](src/images/types.ts) | Data types of the renaming |
@@ -270,7 +302,9 @@ Alternatively, to develop against a live vault without copying anything, clone t
 | [.vscode/tasks.json](.vscode/tasks.json) | VS Code tasks for deploying |
 | [tests/](tests/) | Unit tests |
 
-Both features are independent of the Obsidian API and carry the bulk of the test suite. Each reaches the vault only through an interface — `ImageRenameHost` in [src/images/rename.ts](src/images/rename.ts), `NutritionHost` in [src/nutrition/update.ts](src/nutrition/update.ts) — which the matching `vault-host.ts` implements against Obsidian and the tests implement in memory.
+The logic is independent of the Obsidian API and carries the bulk of the test suite. It reaches the vault only through an interface — `ImageRenameHost` in [src/images/rename.ts](src/images/rename.ts), `DailyNotesHost` in [src/daily-notes/metrics.ts](src/daily-notes/metrics.ts) — which the matching `vault-host.ts` implements against Obsidian and the tests implement in memory.
+
+A new metric is a `DayMetricSource`: it declares the properties it owns, reads what it needs when the run opens it, and answers what those properties come to for a note. Merging, comparing and writing are not its business. Adding one means a folder under `src/`, a line in `ToolboxPlugin.metrics()` and a section in the settings tab.
 
 ## Credits
 

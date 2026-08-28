@@ -54,11 +54,6 @@ export function noNutrients(): Nutrients {
 	return { calories: 0, protein: 0, fat: 0, carbs: 0, water: 0 };
 }
 
-/** Whether the two sets of amounts hold the same numbers. */
-export function sameNutrients(one: Nutrients, other: Nutrients): boolean {
-	return NUTRIENTS.every((nutrient) => one[nutrient] === other[nutrient]);
-}
-
 /**
  * Reads a frontmatter value as a number. Obsidian hands numeric properties over
  * as numbers, but a property that was typed as text still holds a number worth
