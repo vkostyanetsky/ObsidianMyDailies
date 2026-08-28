@@ -82,8 +82,6 @@ It is one of the two runs nobody asks for — the other one is the nutrition run
 
 The plugin adds up what the eating records of a day state and writes the totals — calories, protein, fat, carbohydrates and water — into the properties of the daily note that stands for that day.
 
-The numbers are the ones the `Питание.base` shows under its **День** view, worked out the same way it works them out.
-
 ### What is read
 
 Three kinds of note take part:
@@ -111,7 +109,7 @@ Every record is worked out on its own and rounded, and the rounded amounts are a
 round(product.calories / product.unit_size * quantity)
 ```
 
-That is exactly what the base does — its columns round each row, and its summary adds the rounded rows up — so rounding the sum instead would drift a unit or two away from the numbers on screen.
+Rounding per record and rounding the sum are not the same thing: two records of 12.5 kcal each come out as 26, not 25. The order above is the one to keep.
 
 A record whose product links to no note is skipped and reported, as is one without an amount; the same goes for a nutrient a product does not state. A day nothing was eaten on comes out as zeroes.
 
@@ -254,7 +252,7 @@ Alternatively, to develop against a live vault without copying anything, clone t
 | [src/images/rename.ts](src/images/rename.ts) | Carrying out a renaming safely, and its outcome |
 | [src/images/folders.ts](src/images/folders.ts) | Running over the notes of the image folders |
 | [src/markdown/frontmatter.ts](src/markdown/frontmatter.ts) | Writing single properties without reformatting the rest |
-| [src/nutrition/totals.ts](src/nutrition/totals.ts) | Reading the records and summing a day the way the base does |
+| [src/nutrition/totals.ts](src/nutrition/totals.ts) | Reading the records and summing up a day |
 | [src/nutrition/daily-notes.ts](src/nutrition/daily-notes.ts) | Telling a daily note apart from any other note |
 | [src/nutrition/update.ts](src/nutrition/update.ts) | Writing a day into its note, and running over all of them |
 | [src/nutrition/vault-host.ts](src/nutrition/vault-host.ts) | Binding the sums to the records, the products and the daily notes |
