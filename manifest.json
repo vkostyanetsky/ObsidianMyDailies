@@ -1,6 +1,6 @@
 {
 	"id": "my-dailies",
-	"name": "MyDailies",
+	"name": "My Dailies",
 	"version": "1.0.0",
 	"minAppVersion": "1.5.0",
 	"description": "Works out the properties of a daily note — what was eaten that day, how many tasks are still open — and points from a day to the days and the months around it.",

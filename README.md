@@ -1,4 +1,4 @@
-# MyDailies 🧰 📅
+# My Dailies 🧰 📅
 
 An Obsidian plugin holding the odds and ends my own vault needs: working out the numbers a daily note carries — what was eaten that day, how many tasks are still open — and pointing from a day to the days and the months around it.
 
@@ -135,11 +135,9 @@ What comes out is the weekday the note stands for, the day before it and the day
 - Anything written inside the block is rendered below the navigation, as Markdown.
 - A note that does not stand for a day, or does not sit in the daily notes folder, shows a warning instead — the block only ever means something in a daily note.
 
-The block answers to `daily-note-navigator` as well: both names render exactly the same thing.
-
 ## 🐞 Debugging output
 
-Everything the plugin does to the vault is written to the developer console (`Ctrl+Shift+I` → **Console**, filter by `[MyDailies]`): how many eating records were read and from where, and every daily note whose properties are written, with the values that went into it. Notes that could not be processed come out as warnings.
+Everything the plugin does to the vault is written to the developer console (`Ctrl+Shift+I` → **Console**, filter by `[My Dailies]`): how many eating records were read and from where, and every daily note whose properties are written, with the values that went into it. Notes that could not be processed come out as warnings.
 
 ## ⚙️ Settings
 
@@ -224,7 +222,7 @@ Both are defined in [.vscode/tasks.json](.vscode/tasks.json) and can be given a 
 }
 ```
 
-After the first deployment, restart Obsidian (or reload the app) and enable **MyDailies** in **Settings → Community plugins**; after later ones, reloading the plugin is enough.
+After the first deployment, restart Obsidian (or reload the app) and enable **My Dailies** in **Settings → Community plugins**; after later ones, reloading the plugin is enough.
 
 Alternatively, to develop against a live vault without copying anything, clone this repository straight into `<your vault>/.obsidian/plugins/my-dailies/`, run `npm run dev`, and reload the plugin after each change.
 

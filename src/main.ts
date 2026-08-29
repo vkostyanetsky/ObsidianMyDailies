@@ -8,11 +8,7 @@ import {
 	updateDailyNote,
 } from "./daily-notes/metrics";
 import { asDailyNote, createDailyNotesHost, logFailures } from "./daily-notes/vault-host";
-import {
-	createNavigationRenderer,
-	LEGACY_NAVIGATION_BLOCK,
-	NAVIGATION_BLOCK,
-} from "./navigation/block";
+import { createNavigationRenderer, NAVIGATION_BLOCK } from "./navigation/block";
 import { createNutritionMetric } from "./nutrition/metric";
 import type { MyDailiesSettings } from "./settings/settings";
 import { readSettings } from "./settings/settings";
@@ -57,13 +53,11 @@ export default class MyDailiesPlugin extends Plugin {
 		});
 
 		// The navigation of a daily note is rendered wherever the block is
-		// written. The name it went by while it was a plugin of its own is
-		// answered as well, so that the notes carrying it keep their navigation.
-		const renderNavigation = createNavigationRenderer(this.app, () => this.settings);
-
-		for (const block of [NAVIGATION_BLOCK, LEGACY_NAVIGATION_BLOCK]) {
-			this.registerMarkdownCodeBlockProcessor(block, renderNavigation);
-		}
+		// written, and nowhere else.
+		this.registerMarkdownCodeBlockProcessor(
+			NAVIGATION_BLOCK,
+			createNavigationRenderer(this.app, () => this.settings),
+		);
 
 		this.addSettingTab(new MyDailiesSettingTab(this.app, this));
 

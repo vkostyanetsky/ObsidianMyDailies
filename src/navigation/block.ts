@@ -21,12 +21,6 @@ import { buildDashboard } from "./dashboard";
 /** The language of the code block the navigation is written into. */
 export const NAVIGATION_BLOCK = "my-dailies-navigation";
 
-/**
- * What the block was called while it belonged to the Daily Note Navigator. It
- * is still answered, so that the notes that carry it keep their navigation.
- */
-export const LEGACY_NAVIGATION_BLOCK = "daily-note-navigator";
-
 /** A day and a month as Moment writes them, in the language of the vault. */
 const WORDING: DateWording = {
 	day: (date, format) => moment(date, "YYYY-MM-DD", true).format(format),
