@@ -1,13 +1,14 @@
 import type { App } from "obsidian";
 import { PluginSettingTab, Setting } from "obsidian";
 
-import type ToolboxPlugin from "../main";
+import type MyDailiesPlugin from "../main";
+import { DEFAULT_MONTHLY_NOTE_NAME } from "../navigation/dashboard";
+import { NAVIGATION_BLOCK } from "../navigation/block";
 import { NUTRIENTS } from "../nutrition/totals";
 import type { Nutrient } from "../nutrition/totals";
 import {
 	DEFAULT_NUTRITION_PROPERTIES,
 	DEFAULT_OPEN_TASKS_PROPERTY,
-	DEFAULT_TWEET_DATE_PROPERTY,
 	normalizeProperty,
 } from "./settings";
 import { FolderSuggest } from "./folder-suggest";
@@ -21,15 +22,14 @@ const NUTRIENT_NAMES: Record<Nutrient, string> = {
 	water: "Water",
 };
 
-/** What a switch of a rule or a metric says under its name. */
-const RULE_SWITCH_DESCRIPTION = "Whether this is applied to a note of the image folders at all.";
+/** What a switch of a metric says under its name. */
 const METRIC_SWITCH_DESCRIPTION = "Whether this is worked out for a daily note at all.";
 
 /** The settings of the plugin, as they are shown in the Obsidian preferences. */
-export class ToolboxSettingTab extends PluginSettingTab {
-	private readonly plugin: ToolboxPlugin;
+export class MyDailiesSettingTab extends PluginSettingTab {
+	private readonly plugin: MyDailiesPlugin;
 
-	constructor(app: App, plugin: ToolboxPlugin) {
+	constructor(app: App, plugin: MyDailiesPlugin) {
 		super(app, plugin);
 
 		this.plugin = plugin;
@@ -38,98 +38,10 @@ export class ToolboxSettingTab extends PluginSettingTab {
 	display(): void {
 		this.containerEl.empty();
 
-		this.displayImageNotes();
-		this.displayRenameImages();
-		this.displayTweetDate();
 		this.displayDailyNotes();
 		this.displayNutrition();
 		this.displayTasks();
-	}
-
-	/** What every rule shares: which notes it works on, and when. */
-	private displayImageNotes(): void {
-		new Setting(this.containerEl)
-			.setName("Image folders")
-			.setDesc(
-				"Folders whose notes the rules below are applied to, subfolders included. " +
-					"Blank rows are ignored. A note is only ever written when one of its " +
-					"rules would leave it saying something else than it does.",
-			)
-			.setHeading();
-
-		this.displayFolders();
-
-		new Setting(this.containerEl)
-			.setName("Update when the vault is opened")
-			.setDesc(
-				"Go through the notes of these folders once, right after the vault has been " +
-					"read in. Nothing is watched afterwards; to go through the folders at " +
-					"any other moment, run one of the two commands.",
-			)
-			.addToggle((toggle) =>
-				toggle
-					.setValue(this.plugin.settings.imageNotes.autoUpdate)
-					.onChange(async (value) => {
-						this.plugin.settings.imageNotes.autoUpdate = value;
-
-						// Switching this on never starts a run of its own: the
-						// folders are gone through when the vault is opened the
-						// next time, or when the command is run.
-						await this.plugin.saveSettings();
-					}),
-			);
-	}
-
-	/** The renaming rule: images are named after the note they sit in. */
-	private displayRenameImages(): void {
-		new Setting(this.containerEl)
-			.setName("Renaming images")
-			.setDesc(
-				"Renames the images embedded in a note after the note itself, numbering " +
-					"them in order of appearance, and points the links of the note at the " +
-					"new names. An image another note shows as well is left alone.",
-			)
-			.setHeading();
-
-		this.displaySwitch(
-			"Rename images",
-			RULE_SWITCH_DESCRIPTION,
-			() => this.plugin.settings.imageNotes.renameImages.enabled,
-			(value) => {
-				this.plugin.settings.imageNotes.renameImages.enabled = value;
-			},
-		);
-	}
-
-	/** The tweet rule: the day the tweet a note links to was posted on. */
-	private displayTweetDate(): void {
-		new Setting(this.containerEl)
-			.setName("Date of a tweet")
-			.setDesc(
-				"Works out the day the tweet a note links to was posted on — from the " +
-					"address alone, nothing is fetched — and writes it into the note. A " +
-					"note linking to several tweets is dated after the first of them, and " +
-					"a date it already carries is written over.",
-			)
-			.setHeading();
-
-		this.displaySwitch(
-			"Fill in the date of the tweet",
-			RULE_SWITCH_DESCRIPTION,
-			() => this.plugin.settings.imageNotes.tweetDate.enabled,
-			(value) => {
-				this.plugin.settings.imageNotes.tweetDate.enabled = value;
-			},
-		);
-
-		this.displayProperty(
-			"Date",
-			DEFAULT_TWEET_DATE_PROPERTY,
-			() => this.plugin.settings.imageNotes.tweetDate.property,
-			(value) => {
-				this.plugin.settings.imageNotes.tweetDate.property = value;
-			},
-		);
+		this.displayNavigation();
 	}
 
 	/** What every metric of a daily note shares: where they are, and when. */
@@ -166,7 +78,9 @@ export class ToolboxSettingTab extends PluginSettingTab {
 					.onChange(async (value) => {
 						this.plugin.settings.dailyNotes.autoUpdate = value;
 
-						// Switching this on never starts a run of its own either.
+						// Switching this on never starts a run of its own: every
+						// daily note is worked out when the vault is opened the
+						// next time, or when the command is run.
 						await this.plugin.saveSettings();
 					}),
 			);
@@ -242,54 +156,44 @@ export class ToolboxSettingTab extends PluginSettingTab {
 		);
 	}
 
-	/** One row per image folder, plus the button that adds another one. */
-	private displayFolders(): void {
-		this.plugin.settings.imageNotes.folders.forEach((folder, index) => {
-			new Setting(this.containerEl)
-				.setClass("toolbox-folder-row")
-				.addSearch((search) => {
-					const save = async (value: string): Promise<void> => {
-						this.plugin.settings.imageNotes.folders[index] = value;
-						await this.plugin.saveSettings();
-					};
+	/** The navigation block: where the notes it links to are, and how named. */
+	private displayNavigation(): void {
+		new Setting(this.containerEl)
+			.setName("Navigation")
+			.setDesc(
+				`A daily note carrying a \`${NAVIGATION_BLOCK}\` code block shows the day ` +
+					"before it and the day after it, together with the month it belongs to " +
+					"and the months on either side of that one. The days are looked for in " +
+					"the daily notes folder above, the months in the folder below. Whatever " +
+					"is written inside the block is shown underneath, and the note itself is " +
+					"never written to.",
+			)
+			.setHeading();
 
-					search.inputEl.setAttribute("aria-label", "Image folder");
-					search
-						.setPlaceholder("Folder in the vault")
-						.setValue(folder)
-						.onChange((value) => {
-							void save(value);
-						});
+		this.displayFolder(
+			"Monthly notes folder",
+			"Folder the notes that stand for a month are kept in. Left empty, they are " +
+				"looked for in the vault root.",
+			() => this.plugin.settings.navigation.monthlyNotesFolder,
+			(value) => {
+				this.plugin.settings.navigation.monthlyNotesFolder = value;
+			},
+		);
 
-					new FolderSuggest(this.app, search.inputEl, (path) => {
-						void save(path);
-					});
-				})
-				.addExtraButton((button) =>
-					button
-						.setIcon("trash")
-						.setTooltip("Remove folder")
-						.onClick(async () => {
-							this.plugin.settings.imageNotes.folders.splice(index, 1);
-							await this.plugin.saveSettings();
-							this.display();
-						}),
-				);
-		});
-
-		new Setting(this.containerEl).setClass("toolbox-folder-add").addButton((button) =>
-			button
-				.setButtonText("Add folder")
-				.setTooltip("Add a folder to the list")
-				.onClick(async () => {
-					this.plugin.settings.imageNotes.folders.push("");
-					await this.plugin.saveSettings();
-					this.display();
-				}),
+		this.displayText(
+			"Monthly note name",
+			"How a monthly note is named. What stands in curly braces is the month itself, " +
+				"written the way Moment.js writes a date: `Month {YYYY-MM}` names the note " +
+				"`Month 2026-08`, and `{MMMM YYYY}` names it `August 2026`.",
+			DEFAULT_MONTHLY_NOTE_NAME,
+			() => this.plugin.settings.navigation.monthlyNoteName,
+			(value) => {
+				this.plugin.settings.navigation.monthlyNoteName = value;
+			},
 		);
 	}
 
-	/** The switch a rule or a metric is turned on and off by. */
+	/** The switch a metric is turned on and off by. */
 	private displaySwitch(
 		name: string,
 		description: string,
@@ -337,20 +241,38 @@ export class ToolboxSettingTab extends PluginSettingTab {
 			});
 	}
 
-	/** The property one value of a rule or a metric ends up in. */
+	/** The property one value of a metric ends up in. */
 	private displayProperty(
 		name: string,
 		fallback: string,
 		read: () => string,
 		write: (value: string) => void,
 	): void {
-		new Setting(this.containerEl).setName(name).addText((text) =>
+		this.displayText(name, null, fallback, read, write);
+	}
+
+	/** A line of text that falls back to a default when it is left empty. */
+	private displayText(
+		name: string,
+		description: string | null,
+		fallback: string,
+		read: () => string,
+		write: (value: string) => void,
+	): void {
+		const setting = new Setting(this.containerEl).setName(name);
+
+		if (description !== null) {
+			setting.setDesc(description);
+		}
+
+		setting.addText((text) =>
 			text
 				.setPlaceholder(fallback)
 				.setValue(read())
 				.onChange(async (value) => {
-					// A property that names nothing would have no line to write
-					// to, so the default steps in until something is typed again.
+					// A setting that says nothing would leave the plugin with
+					// nothing to go by, so the default steps in until something is
+					// typed again.
 					write(normalizeProperty(value, fallback));
 					await this.plugin.saveSettings();
 				}),

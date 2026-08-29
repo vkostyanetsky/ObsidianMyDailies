@@ -296,7 +296,7 @@ describe("readSettings", () => {
 	});
 
 	it("fills in everything an older installation never stored", () => {
-		const settings = readSettings({ imageFolders: ["Notes"], autoRenameImages: true });
+		const settings = readSettings({ autoUpdateNutrition: false });
 
 		expect(settings.dailyNotes).toEqual(DEFAULT_SETTINGS.dailyNotes);
 		expect(settings.nutrition).toEqual(DEFAULT_SETTINGS.nutrition);

@@ -6,7 +6,7 @@
 import type { App, CachedMetadata, TFile } from "obsidian";
 
 import { log, logProblem } from "../log";
-import type { ToolboxSettings } from "../settings/settings";
+import type { MyDailiesSettings } from "../settings/settings";
 import { normalizeFolder } from "../settings/settings";
 import { dailyNoteDate, isInDailyNotesFolder } from "./notes";
 import type { DailyNote, DailyNotesHost } from "./metrics";
@@ -34,7 +34,7 @@ function storedValue(value: unknown): string | null {
  * The folder the daily notes sit in: the one named in the settings, or, when
  * that is left empty, the one the core Daily notes plugin keeps them in.
  */
-export function dailyNotesFolder(app: App, settings: ToolboxSettings): string {
+export function dailyNotesFolder(app: App, settings: MyDailiesSettings): string {
 	const configured = normalizeFolder(settings.dailyNotes.folder);
 
 	if (configured !== "") {
@@ -55,7 +55,7 @@ export function dailyNotesFolder(app: App, settings: ToolboxSettings): string {
 }
 
 /** Binds a run over the daily notes to the vault. */
-export function createDailyNotesHost(app: App, settings: ToolboxSettings): DailyNotesHost {
+export function createDailyNotesHost(app: App, settings: MyDailiesSettings): DailyNotesHost {
 	const folder = dailyNotesFolder(app, settings);
 
 	return {
@@ -100,7 +100,7 @@ export function createDailyNotesHost(app: App, settings: ToolboxSettings): Daily
 }
 
 /** The note, but only when it stands for a day and sits where they are kept. */
-export function asDailyNote(app: App, file: TFile, settings: ToolboxSettings): DailyNote | null {
+export function asDailyNote(app: App, file: TFile, settings: MyDailiesSettings): DailyNote | null {
 	const date = dailyNoteDate(file.basename);
 
 	if (date === null || file.extension !== "md") {

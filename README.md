@@ -1,120 +1,17 @@
-# Toolbox 🧰 🖼️ 📅
+# MyDailies 🧰 📅
 
-**English** | [Русский](README.ru.md)
-
-An Obsidian plugin holding the odds and ends my own vault needs: keeping the notes of my image folders in shape — naming their images after them, dating them after the tweet they were made from — and working out the numbers a daily note carries: what was eaten that day, how many tasks are still open.
+An Obsidian plugin holding the odds and ends my own vault needs: working out the numbers a daily note carries — what was eaten that day, how many tasks are still open — and pointing from a day to the days and the months around it.
 
 > **A personal tool.** This plugin exists to support my own work on various projects, and its behaviour is shaped entirely by how I structure my notes for those projects. It is not intended to be a general-purpose Obsidian plugin, and there are no plans to submit it to the community catalogue. You are welcome to use it if your notes happen to follow the same conventions, but nothing here is designed with anyone else's workflow in mind.
 
 ## ✨ What it does
 
-Two features, four commands, and two runs the plugin can make by itself once the vault is opened:
+Two features, two commands, and one run the plugin can make by itself once the vault is opened:
 
-| Feature | Commands |
+| Feature | How it is asked for |
 | --- | --- |
-| [Image notes](#-image-notes) | **Update current note**, **Update notes in image folders** |
 | [Daily notes](#-daily-notes) | **Recalculate properties of current daily note**, **Recalculate properties of all daily notes** |
-
-## 🖼️ Image notes
-
-The notes kept in the **image folders** named in the settings are brought into shape by a handful of **rules**, each switched on and configured in the settings on its own:
-
-| Rule | What it does |
-| --- | --- |
-| [Renaming images](#-renaming-images) | Names the images embedded in a note after the note itself |
-| [Date of a tweet](#-date-of-a-tweet) | Writes the day the tweet the note links to was posted on into the note |
-
-The rules are applied in that order, one note at a time. **A note is only written when a rule would leave it saying something other than it does**, so a run over folders that are already in order writes nothing and leaves a thousand modification dates alone. A rule that goes wrong does not hold up the ones behind it — the renaming of the images and the date of a tweet have nothing to do with each other — and the notice says what was done and what was not.
-
-### Update current note
-
-Applies every switched-on rule to the note that is open and reports what each of them came to.
-
-The command is not offered at all unless the note in front of you sits in one of the image folders. On anything else it does not appear in the command palette, and a shortcut bound to it does nothing.
-
-The links a renaming rewrites are edited in the open note itself, as one undoable step; a property is written to the file.
-
-### Update notes in image folders
-
-The same, for every note of the image folders, one note after the other. Notes that are open have their links rewritten through the editor; the rest are written straight to disk.
-
-A single notice sums the run up — how many notes were written, out of how many — and names every rule that had to be left undone, with the note it belongs to.
-
-### Updating when the vault is opened
-
-With **Update when the vault is opened** switched on, the run above happens once by itself: right after Obsidian has read the vault in, the notes of the image folders are gone through and whatever is out of place is put right. It reports only when it wrote something or ran into trouble.
-
-It is one of the two runs nobody asks for — the other one is the daily notes run below. The plugin does not listen to the vault: a note is never looked at while it is being written, and images never move under your hands. Everything else happens when a command is run.
-
-## 🏷️ Renaming images
-
-It renames every image embedded in the note after the note itself, numbering the images in the order they first appear:
-
-```text
-{note name} {number}.{extension}
-```
-
-A note that names a single image after itself needs no numbering to tell its images apart, so that one image is simply:
-
-```text
-{note name}.{extension}
-```
-
-Before:
-
-```markdown
-![[Test 1.png]]
-
-![[Pasted image 20260808172735.png]]
-
-![[Test 10.png]]
-```
-
-After (with eleven images in the note):
-
-```markdown
-![[Test 01.png]]
-
-![[Test 03.png]]
-
-![[Test 05.png]]
-```
-
-### Rules
-
-- Numbers start at `1` and are padded to the width of the total: `1`…`9` for up to nine images, `01`…`99` for up to ninety-nine, `001`…`999` beyond that.
-- A note with a single image to name gives it its own name, without a number — `Test.png`, not `Test 1.png`. As soon as a second image joins the note, both are numbered again.
-- The extension of the image is kept as it is, including its case. Recognised extensions are `png`, `jpg`, `jpeg`, `gif`, `webp`, `bmp`, `svg` and `avif`, compared case-insensitively.
-- Images stay in the folder they are in; only the file name changes.
-- An image used several times in the note is renamed once, takes the number of its first appearance, and does not widen the numbering.
-- Both `![[Image.png]]` and `![](Image.png)` are understood, in any folder, and the alias, the size (`![[Image.png|300]]`) and the title of a link are left untouched.
-- Links inside YAML frontmatter, fenced code blocks and inline code are ignored, as are external addresses and embeds of files that are not images.
-- An image another note links to as well is left alone: it belongs to no single note, so renaming it after this one would only take it away from the others. Such an image takes no number either, and the notice says how many were left out.
-- Links that do not resolve to a file are skipped: they take no number, and the notice says how many were left out.
-- An image that already has the right name for its position is left alone, and so is its link.
-
-The renaming is planned in full before anything happens. If a name the plan needs is already taken by a file outside the note, nothing is renamed at all and a notice names both the image that wanted the name and the name it could not take — usually a leftover file that sits in the folder without being embedded anywhere. Every image is renamed straight to its new name as soon as that name is free. Images that take names from each other — a note where `Test 10.png` has to become `Test 05.png` while another image becomes `Test 10.png` — would each wait for the other, so one of them is moved to a temporary name to open the ring and the rest follows it. No file is ever overwritten, and an image whose name is free is renamed once, not twice. When a rename fails halfway through, the ones that already happened are taken back.
-
-Renaming goes through the Obsidian file manager, so it honours the **Automatically update internal links** setting: when it is on, Obsidian rewrites the links itself and the plugin only checks the result; when it is off, the plugin rewrites the links of the current note in one undoable step. Links to the images from *other* notes are Obsidian's business either way.
-
-## 🐦 Date of a tweet
-
-A note made from something seen on X usually keeps the address it came from. The day the tweet was posted on is written in that address already — the id of a tweet carries the millisecond it was handed out at — so the plugin reads the day off the link and writes it into the note:
-
-```yaml
----
-date: 2017-04-06
----
-```
-
-- Both `x.com` and `twitter.com` are recognised, with any subdomain (`mobile.twitter.com`) and with anything the address carries behind the id (`?s=20`, `/photo/1`). The address has to carry its scheme, `https://` or `http://`, so that a word ending in `x.com` is never taken for a link.
-- A link in the frontmatter counts as well — that is where a note tends to keep the address it was made from — while fenced code blocks are left alone.
-- A note linking to several tweets is dated after the first of them, which is the one it was written about.
-- The day is the one it was in **UTC**, so that the same link always comes out as the same date, wherever the vault is opened.
-- Nothing is fetched from the network, so the date of a link is known even for a tweet that has since been deleted.
-- **A date the note already carries is written over.** The id of the tweet is what the day is taken from; a date typed by hand loses.
-- Tweets from before November 2010 carry no timestamp in their ids — those were counted up one by one — and a link to one of them is left alone.
-- The property the date goes into is named in the settings; blank falls back to `date`.
+| [Navigation](#-navigation) | A `my-dailies-navigation` block written into a daily note |
 
 ## 📅 Daily notes
 
@@ -213,36 +110,58 @@ Only the tasks flush left are counted, so the subtasks of a task do not inflate 
 
 The count comes from the index Obsidian keeps rather than from the text of the note. A run therefore reads no file at all, and a `- [ ] ` inside a fenced code block is not mistaken for a task, because Obsidian does not index it as one either.
 
+## 🧭 Navigation
+
+A daily note carrying a code block of its own shows where it sits among the other days:
+
+````text
+```my-dailies-navigation
+```
+````
+
+What comes out is the weekday the note stands for, the day before it and the day after it, and the month it belongs to together with the months on either side:
+
+```text
+> [!seealso] Saturday
+> 📅 [[Days/2026-08-28|2026-08-28]] ← 2026-08-29 → [[Days/2026-08-30|2026-08-30]]
+
+[[Months/Month 2026-07|JUL]] ⬅️ [[Months/Month 2026-08|AUG]] ➡️ [[Months/Month 2026-09|SEP]]
+```
+
+- The days are looked for in the **daily notes folder**, the same one the metrics use, and are named after the day itself, `2026-08-29`.
+- The months are looked for in the **monthly notes folder** and named after the **Monthly note name** setting: what stands in curly braces is the month, written the way Moment.js writes a date. `Month {YYYY-MM}` names the note `Month 2026-08`, `{MMMM YYYY}` names it `August 2026`.
+- The weekday and the short names of the months are written in the language Obsidian is set to.
+- **Nothing is created and nothing is written.** A day or a month the vault has no note for is still linked, as the empty link Obsidian offers to fill in.
+- Anything written inside the block is rendered below the navigation, as Markdown.
+- A note that does not stand for a day, or does not sit in the daily notes folder, shows a warning instead — the block only ever means something in a daily note.
+
+The block answers to `daily-note-navigator` as well: both names render exactly the same thing.
+
 ## 🐞 Debugging output
 
-Everything the plugin does to the vault is written to the developer console (`Ctrl+Shift+I` → **Console**, filter by `[Toolbox]`): how many notes of the vault a run considered, every image rename, every image left alone because other notes use it — named one by one — every note that is written back, with the number of links rewritten in it, every date taken from a tweet, how many eating records were read and from where, and every daily note whose properties are written. Notes that could not be processed come out as warnings.
+Everything the plugin does to the vault is written to the developer console (`Ctrl+Shift+I` → **Console**, filter by `[MyDailies]`): how many eating records were read and from where, and every daily note whose properties are written, with the values that went into it. Notes that could not be processed come out as warnings.
 
 ## ⚙️ Settings
 
 | Setting | What it does |
 | --- | --- |
-| **Image folders** | The folders the rules above are applied to, subfolders included. Any number of them; each row picks a folder of the vault, and blank rows are ignored. The vault root cannot be given as a folder — a folder has to be named. |
-| **Update when the vault is opened** | Whether the notes of those folders are gone through once at startup. Switching it on changes nothing right away — it takes effect the next time the vault is opened. To go through the folders now, run the command. |
-| **Rename images** | Whether the images of a note are named after the note at all. |
-| **Fill in the date of the tweet** | Whether the day a linked tweet was posted on is written into the note at all. |
-| **Date** | The property that day is written to. Blank falls back to `date`. |
 | **Daily notes folder** | The folder the daily notes are kept in. Left empty, the folder of the core **Daily notes** plugin is used. |
-| **Recalculate when the vault is opened** | Whether every daily note is worked out once at startup. As above, switching it on takes effect the next time the vault is opened. |
+| **Recalculate when the vault is opened** | Whether every daily note is worked out once at startup. Switching it on changes nothing right away — it takes effect the next time the vault is opened. To go through the notes now, run the command. |
 | **Count nutrition** | Whether what was eaten is counted for a daily note at all. |
 | **Nutrition records folder** | The folder the eating records are kept in, subfolders included. Without it nothing is summed up, and the commands report as much. |
 | **Calories**, **Protein**, **Fat**, **Carbohydrates**, **Water** | The properties of the daily note each total is written to. Blank falls back to `calories`, `protein`, `fat`, `carbs`, `water`. |
 | **Count open tasks** | Whether the open tasks of a daily note are counted at all. |
 | **Open tasks** | The property the number of open tasks is written to. Blank falls back to `tasks`. |
+| **Monthly notes folder** | The folder the notes that stand for a month are kept in. Left empty, they are looked for in the vault root. |
+| **Monthly note name** | How a monthly note is named, with the month itself in curly braces. Blank falls back to `Month {YYYY-MM}`. |
 
-Folders are matched without regard to case, and a folder holds everything below it, so `Projects` covers `Projects/2026/Trip.md` as well.
+Folders are matched without regard to case, and a folder holds everything below it, so `Records` covers `Records/2026/Breakfast.md` as well.
 
 ## 🙂 Usage
 
-Open a note of an image folder, then run **Update current note** from the command palette (`Ctrl/Cmd+P`). To go through every note of those folders instead, run **Update notes in image folders**.
+Open a daily note and run **Recalculate properties of current daily note** from the command palette (`Ctrl/Cmd+P`) to write its numbers, or **Recalculate properties of all daily notes** to go through the whole vault. To carry the navigation as well, write a `my-dailies-navigation` block into the note — a template of the daily notes is the place for it.
 
-Open a daily note and run **Recalculate properties of current daily note** to write its numbers, or **Recalculate properties of all daily notes** to go through the whole vault.
-
-All four work only when they are run. Nothing is renamed while a note is being edited, and no note is written unless something in it would change.
+Both work only when they are run, and no note is written unless one of its values would come out different from what it already says.
 
 ## 🔨 Building
 
@@ -288,7 +207,7 @@ Then build and copy the plugin into that vault in one step:
 npm run deploy
 ```
 
-It writes `main.js`, `manifest.json` and `styles.css` to `<vault>/.obsidian/plugins/toolbox/`, creating the folder if it is not there. A different vault can be given for a single run — as the first argument (`node scripts/deploy.mjs "C:\Path\To\Vault"`) or in an `OBSIDIAN_VAULT` environment variable, both of which win over `.env`. A folder without `.obsidian` inside is refused, nothing is copied when `main.js` has not been built yet, and a missing `.env` is reported rather than guessed around.
+It writes `main.js` and `manifest.json` to `<vault>/.obsidian/plugins/my-dailies/`, creating the folder if it is not there. A different vault can be given for a single run — as the first argument (`node scripts/deploy.mjs "C:\Path\To\Vault"`) or in an `OBSIDIAN_VAULT` environment variable, both of which win over `.env`. A folder without `.obsidian` inside is refused, nothing is copied when `main.js` has not been built yet, and a missing `.env` is reported rather than guessed around.
 
 In VS Code the same thing runs from the command palette (`Ctrl+Shift+P`) → **Tasks: Run Task**:
 
@@ -305,9 +224,9 @@ Both are defined in [.vscode/tasks.json](.vscode/tasks.json) and can be given a 
 }
 ```
 
-After the first deployment, restart Obsidian (or reload the app) and enable **Toolbox** in **Settings → Community plugins**; after later ones, reloading the plugin is enough.
+After the first deployment, restart Obsidian (or reload the app) and enable **MyDailies** in **Settings → Community plugins**; after later ones, reloading the plugin is enough.
 
-Alternatively, to develop against a live vault without copying anything, clone this repository straight into `<your vault>/.obsidian/plugins/toolbox/`, run `npm run dev`, and reload the plugin after each change.
+Alternatively, to develop against a live vault without copying anything, clone this repository straight into `<your vault>/.obsidian/plugins/my-dailies/`, run `npm run dev`, and reload the plugin after each change.
 
 ## 🗂️ Project layout
 
@@ -315,41 +234,29 @@ Alternatively, to develop against a live vault without copying anything, clone t
 | --- | --- |
 | [src/main.ts](src/main.ts) | Plugin and command registration |
 | [src/markdown/lines.ts](src/markdown/lines.ts) | Markdown analysis: lines, frontmatter, fenced code blocks |
-| [src/markdown/edits.ts](src/markdown/edits.ts) | Text edits and how to apply them to a string |
-| [src/images/links.ts](src/images/links.ts) | Finding and reading embedded image links |
-| [src/images/paths.ts](src/images/paths.ts) | Vault path arithmetic |
-| [src/images/plan.ts](src/images/plan.ts) | New names, name conflicts and the resulting link edits |
-| [src/images/rename.ts](src/images/rename.ts) | Carrying out a renaming safely, and its outcome |
-| [src/image-notes/rules.ts](src/image-notes/rules.ts) | What a rule is, and the run that applies the rules to a note |
-| [src/image-notes/run.ts](src/image-notes/run.ts) | Running over the notes of the image folders |
-| [src/images/rule.ts](src/images/rule.ts) | The renaming of the images as a rule |
-| [src/tweets/tweets.ts](src/tweets/tweets.ts) | Reading the day a tweet was posted on out of its address |
-| [src/tweets/rule.ts](src/tweets/rule.ts) | The date of a tweet as a rule |
 | [src/markdown/frontmatter.ts](src/markdown/frontmatter.ts) | Writing single properties without reformatting the rest |
 | [src/daily-notes/notes.ts](src/daily-notes/notes.ts) | Telling a daily note apart from any other note |
 | [src/daily-notes/metrics.ts](src/daily-notes/metrics.ts) | What a metric is, and the run that merges them into one write |
 | [src/daily-notes/vault-host.ts](src/daily-notes/vault-host.ts) | Binding a run to the daily notes of the vault |
+| [src/navigation/dates.ts](src/navigation/dates.ts) | The days and the months around a day |
+| [src/navigation/dashboard.ts](src/navigation/dashboard.ts) | The navigation of a note, as the Markdown it is rendered from |
+| [src/navigation/block.ts](src/navigation/block.ts) | Binding the navigation block to the vault and to Moment |
 | [src/nutrition/totals.ts](src/nutrition/totals.ts) | Reading the records and summing up a day |
 | [src/nutrition/metric.ts](src/nutrition/metric.ts) | Nutrition as a metric: the records, the products, the totals |
 | [src/tasks/open-tasks.ts](src/tasks/open-tasks.ts) | Which list items count as a task still to be done |
 | [src/tasks/metric.ts](src/tasks/metric.ts) | Open tasks as a metric, off Obsidian's index |
-| [src/log.ts](src/log.ts) | Debugging output |
-| [src/images/vault-host.ts](src/images/vault-host.ts) | Binding the renaming to the vault, to the open note and to the file |
-| [src/images/types.ts](src/images/types.ts) | Data types of the renaming |
 | [src/settings/settings.ts](src/settings/settings.ts) | The stored settings, and which notes the folders hold |
 | [src/settings/tab.ts](src/settings/tab.ts) | The settings tab in the Obsidian preferences |
 | [src/settings/folder-suggest.ts](src/settings/folder-suggest.ts) | Suggesting vault folders while one is typed |
-| [styles.css](styles.css) | The little styling the settings tab needs |
-| [src/editor/apply-edits.ts](src/editor/apply-edits.ts) | Applying edits to the Obsidian editor as one transaction |
-| [src/editor/position-mapping.ts](src/editor/position-mapping.ts) | Carrying cursors and selections across the edits |
+| [src/log.ts](src/log.ts) | Debugging output |
 | [scripts/deploy.mjs](scripts/deploy.mjs) | Copying the built plugin into a vault |
 | [.env.example](.env.example) | Where the vault path goes, once copied to `.env` |
 | [.vscode/tasks.json](.vscode/tasks.json) | VS Code tasks for deploying |
 | [tests/](tests/) | Unit tests |
 
-The logic is independent of the Obsidian API and carries the bulk of the test suite. It reaches the vault only through an interface — `ImageRenameHost` in [src/images/rename.ts](src/images/rename.ts), `DailyNotesHost` in [src/daily-notes/metrics.ts](src/daily-notes/metrics.ts) — which the matching `vault-host.ts` implements against Obsidian and the tests implement in memory.
+The logic is independent of the Obsidian API and carries the bulk of the test suite. It reaches the vault only through an interface — `DailyNotesHost` in [src/daily-notes/metrics.ts](src/daily-notes/metrics.ts) — which [src/daily-notes/vault-host.ts](src/daily-notes/vault-host.ts) implements against Obsidian and the tests implement in memory.
 
-A new rule of the image folders is a `NoteRule`: it is handed one note and answers what it did to it, what it found already in order, or why it could not be applied. A new metric of a daily note is a `DayMetricSource`: it declares the properties it owns, reads what it needs when the run opens it, and answers what those properties come to for a note — merging, comparing and writing are not its business. Adding either means a folder under `src/`, a line in `ToolboxPlugin.rules()` or `ToolboxPlugin.metrics()`, and a section in the settings tab.
+A new metric of a daily note is a `DayMetricSource`: it declares the properties it owns, reads what it needs when the run opens it, and answers what those properties come to for a note — merging, comparing and writing are not its business. Adding one means a folder under `src/`, a line in `MyDailiesPlugin.metrics()`, and a section in the settings tab.
 
 ## 🙏 Credits
 

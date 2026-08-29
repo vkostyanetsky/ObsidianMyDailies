@@ -8,53 +8,25 @@ import {
 	updateDailyNote,
 } from "./daily-notes/metrics";
 import { asDailyNote, createDailyNotesHost, logFailures } from "./daily-notes/vault-host";
-import type { ImageNote, NoteRule } from "./image-notes/rules";
-import { describeNoteOutcome, describeNotesRun, updateNote } from "./image-notes/rules";
-import { imageNoteOf, updateNotesInFolders } from "./image-notes/run";
-import { createRenameImagesRule } from "./images/rule";
+import {
+	createNavigationRenderer,
+	LEGACY_NAVIGATION_BLOCK,
+	NAVIGATION_BLOCK,
+} from "./navigation/block";
 import { createNutritionMetric } from "./nutrition/metric";
-import type { ToolboxSettings } from "./settings/settings";
-import { hasFolders, readSettings } from "./settings/settings";
-import { ToolboxSettingTab } from "./settings/tab";
+import type { MyDailiesSettings } from "./settings/settings";
+import { readSettings } from "./settings/settings";
+import { MyDailiesSettingTab } from "./settings/tab";
 import { createOpenTasksMetric } from "./tasks/metric";
-import { createTweetDateRule } from "./tweets/rule";
 
 /** How long the summary of a run over many notes stays on screen. */
 const SUMMARY_NOTICE_DURATION = 10_000;
 
-export default class ToolboxPlugin extends Plugin {
-	settings: ToolboxSettings = readSettings(null);
+export default class MyDailiesPlugin extends Plugin {
+	settings: MyDailiesSettings = readSettings(null);
 
 	async onload(): Promise<void> {
 		this.settings = readSettings(await this.loadData());
-
-		// The command is not offered at all unless the note in front of the user
-		// is one of those the rules are meant for.
-		this.addCommand({
-			id: "update-image-note",
-			name: "Update current note",
-			checkCallback: (checking) => {
-				const note = this.activeImageNote();
-
-				if (note === null) {
-					return false;
-				}
-
-				if (!checking) {
-					void this.updateImageNote(note);
-				}
-
-				return true;
-			},
-		});
-
-		this.addCommand({
-			id: "update-image-notes",
-			name: "Update notes in image folders",
-			callback: () => {
-				void this.updateImageNotes();
-			},
-		});
 
 		// The command is not offered at all unless the note in front of the user
 		// stands for a day, today's or any other.
@@ -84,17 +56,21 @@ export default class ToolboxPlugin extends Plugin {
 			},
 		});
 
-		this.addSettingTab(new ToolboxSettingTab(this.app, this));
+		// The navigation of a daily note is rendered wherever the block is
+		// written. The name it went by while it was a plugin of its own is
+		// answered as well, so that the notes carrying it keep their navigation.
+		const renderNavigation = createNavigationRenderer(this.app, () => this.settings);
 
-		// The only two runs that are not asked for by hand: the image folders and
-		// the daily notes are brought up to date with whatever was written while
-		// the vault was closed. Nothing is watched afterwards, so a note is only
-		// ever touched on demand.
+		for (const block of [NAVIGATION_BLOCK, LEGACY_NAVIGATION_BLOCK]) {
+			this.registerMarkdownCodeBlockProcessor(block, renderNavigation);
+		}
+
+		this.addSettingTab(new MyDailiesSettingTab(this.app, this));
+
+		// The only run that is not asked for by hand: the daily notes are brought
+		// up to date with whatever was written while the vault was closed.
+		// Nothing is watched afterwards, so a note is only ever touched on demand.
 		this.app.workspace.onLayoutReady(() => {
-			if (this.settings.imageNotes.autoUpdate) {
-				void this.updateImageNotes(true);
-			}
-
 			if (this.settings.dailyNotes.autoUpdate) {
 				void this.updateAllDailyNotes(true);
 			}
@@ -104,73 +80,6 @@ export default class ToolboxPlugin extends Plugin {
 	/** Writes the settings back, so that they survive a restart. */
 	async saveSettings(): Promise<void> {
 		await this.saveData(this.settings);
-	}
-
-	/**
-	 * The rules that are switched on, in the order they are applied in. A new
-	 * one is added here and nowhere else.
-	 */
-	private rules(): NoteRule[] {
-		return [
-			createRenameImagesRule(this.app, this.settings),
-			createTweetDateRule(this.app, this.settings),
-		].filter((rule): rule is NoteRule => rule !== null);
-	}
-
-	/**
-	 * The note in front of the user, but only when it sits in one of the image
-	 * folders. Anything else is not a note the rules are meant for, and the
-	 * command that works on one is not offered for it.
-	 */
-	private activeImageNote(): ImageNote | null {
-		const view = this.app.workspace.getActiveViewOfType(MarkdownView);
-
-		if (view === null || view.file === null) {
-			return null;
-		}
-
-		return imageNoteOf(view.file, this.settings.imageNotes.folders);
-	}
-
-	/** Applies every rule that is switched on to one note. */
-	private async updateImageNote(note: ImageNote): Promise<void> {
-		new Notice(describeNoteOutcome(await updateNote(this.rules(), note)));
-	}
-
-	/**
-	 * Does the same for every note of the image folders. A quiet run only speaks
-	 * up when something was written or went wrong.
-	 */
-	private async updateImageNotes(quiet = false): Promise<void> {
-		const rules = this.rules();
-
-		if (rules.length === 0) {
-			if (!quiet) {
-				new Notice(describeNoteOutcome({ kind: "no-rules" }));
-			}
-
-			return;
-		}
-
-		if (!hasFolders(this.settings.imageNotes.folders)) {
-			if (!quiet) {
-				new Notice("No image folders are set. Add one in the settings of the plugin.");
-			}
-
-			return;
-		}
-
-		const summary = await updateNotesInFolders(
-			this.app,
-			this.settings.imageNotes.folders,
-			rules,
-		);
-
-		if (quiet && summary.updated === 0 && summary.failures.length === 0) {
-			return;
-		}
-
-		new Notice(describeNotesRun(summary), SUMMARY_NOTICE_DURATION);
 	}
 
 	/**

@@ -1,9 +1,9 @@
 {
-	"id": "toolbox",
-	"name": "Toolbox",
+	"id": "my-dailies",
+	"name": "MyDailies",
 	"version": "1.0.0",
 	"minAppVersion": "1.5.0",
-	"description": "Keeps the notes of the image folders in shape — naming their images after them, dating them after the tweet they link to — and works out the properties of a daily note.",
+	"description": "Works out the properties of a daily note — what was eaten that day, how many tasks are still open — and points from a day to the days and the months around it.",
 	"author": "Vlad Kostyanetsky",
 	"isDesktopOnly": false
 }

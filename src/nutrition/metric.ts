@@ -13,7 +13,7 @@ import { frontmatterOf } from "../daily-notes/vault-host";
 import type { DayMetric, DayMetricSource, MetricValues } from "../daily-notes/metrics";
 import { log } from "../log";
 import { isInFolder, normalizeFolder } from "../settings/settings";
-import type { ToolboxSettings } from "../settings/settings";
+import type { MyDailiesSettings } from "../settings/settings";
 import type { NutritionRecord, ProductFacts } from "./totals";
 import { NUTRIENTS, readDate, readLinkTarget, readNumber, recordsByDay, sumDay } from "./totals";
 
@@ -51,7 +51,7 @@ function readProduct(app: App, file: TFile): ProductFacts {
 }
 
 /** Reads the records of the folder and groups them by the day they belong to. */
-function openMetric(app: App, settings: ToolboxSettings, recordsFolder: string): DayMetric {
+function openMetric(app: App, settings: MyDailiesSettings, recordsFolder: string): DayMetric {
 	const records = app.vault
 		.getMarkdownFiles()
 		.filter((file) => isInFolder(file.path, recordsFolder))
@@ -117,7 +117,7 @@ function openMetric(app: App, settings: ToolboxSettings, recordsFolder: string):
  */
 export function createNutritionMetric(
 	app: App,
-	settings: ToolboxSettings,
+	settings: MyDailiesSettings,
 ): DayMetricSource | null {
 	const recordsFolder = normalizeFolder(settings.nutrition.recordsFolder);
 

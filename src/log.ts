@@ -5,7 +5,7 @@
  */
 
 /** Prefix every line carries, so that the console can be filtered by it. */
-const PREFIX = "[Toolbox]";
+const PREFIX = "[MyDailies]";
 
 /** Writes one line of debugging information. */
 export function log(message: string): void {

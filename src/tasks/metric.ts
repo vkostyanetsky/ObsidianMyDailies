@@ -11,7 +11,7 @@
 import type { App } from "obsidian";
 
 import type { DayMetric, DayMetricSource } from "../daily-notes/metrics";
-import type { ToolboxSettings } from "../settings/settings";
+import type { MyDailiesSettings } from "../settings/settings";
 import type { TaskItem } from "./open-tasks";
 import { countOpenTasks } from "./open-tasks";
 
@@ -45,7 +45,7 @@ function openMetric(app: App, property: string): DayMetric {
 }
 
 /** The open tasks metric, or `null` when it is switched off. */
-export function createOpenTasksMetric(app: App, settings: ToolboxSettings): DayMetricSource | null {
+export function createOpenTasksMetric(app: App, settings: MyDailiesSettings): DayMetricSource | null {
 	if (!settings.openTasks.enabled) {
 		return null;
 	}
