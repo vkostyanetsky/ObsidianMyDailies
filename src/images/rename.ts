@@ -287,54 +287,18 @@ export function describeOutcome(outcome: ImageRenameOutcome): string {
 	}
 }
 
-/** What a run over a whole set of notes came to. */
-export interface NotesRenameSummary {
-	/** Number of notes the renaming was applied to. */
-	notes: number;
-	/** Number of images that were renamed across all of them. */
-	renamed: number;
-	/** One line per note that could not be processed, naming the reason. */
-	failures: string[];
-}
-
-/** A summary nothing has been added to yet. */
-export function emptySummary(): NotesRenameSummary {
-	return { notes: 0, renamed: 0, failures: [] };
-}
-
-/** Adds what became of one note to a running summary. */
-export function addToSummary(
-	summary: NotesRenameSummary,
-	noteName: string,
-	outcome: ImageRenameOutcome,
-): void {
-	summary.notes += 1;
-
-	if (outcome.kind === "renamed") {
-		summary.renamed += outcome.renamed;
-		return;
+/**
+ * What the renaming came to, as one part of a notice about a note several
+ * rules were applied to, or `null` when there was nothing to rename at all.
+ */
+export function summarizeRename(outcome: ImageRenameOutcome): string | null {
+	if (outcome.kind !== "renamed") {
+		return null;
 	}
 
-	if (outcome.kind === "conflict" || outcome.kind === "failed") {
-		summary.failures.push(`${noteName}: ${describeOutcome(outcome)}`);
-	}
-}
+	const skipped = describeSkipped(outcome.skipped, outcome.shared);
 
-/** The notice shown for a run over a set of notes. */
-export function describeNotesRun(summary: NotesRenameSummary): string {
-	if (summary.notes === 0) {
-		return "There are no notes in the image folders.";
-	}
-
-	const notes = `${summary.notes} ${summary.notes === 1 ? "note" : "notes"}`;
-	const headline =
-		summary.renamed === 0
-			? `The images in ${notes} are already named correctly.`
-			: `Renamed ${summary.renamed} ${summary.renamed === 1 ? "image" : "images"} in ${notes}.`;
-
-	if (summary.failures.length === 0) {
-		return headline;
-	}
-
-	return `${headline}\n${summary.failures.join("\n")}`;
+	return outcome.renamed === 0
+		? `the images are already named correctly${skipped}`
+		: `renamed ${outcome.renamed} ${outcome.renamed === 1 ? "image" : "images"}${skipped}`;
 }

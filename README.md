@@ -2,7 +2,7 @@
 
 **English** | [Русский](README.ru.md)
 
-An Obsidian plugin holding the odds and ends my own vault needs: renaming the images embedded in a note after the note itself, and working out the numbers a daily note carries — what was eaten that day, how many tasks are still open.
+An Obsidian plugin holding the odds and ends my own vault needs: keeping the notes of my image folders in shape — naming their images after them, dating them after the tweet they were made from — and working out the numbers a daily note carries: what was eaten that day, how many tasks are still open.
 
 > **A personal tool.** This plugin exists to support my own work on various projects, and its behaviour is shaped entirely by how I structure my notes for those projects. It is not intended to be a general-purpose Obsidian plugin, and there are no plans to submit it to the community catalogue. You are welcome to use it if your notes happen to follow the same conventions, but nothing here is designed with anyone else's workflow in mind.
 
@@ -12,10 +12,41 @@ Two features, four commands, and two runs the plugin can make by itself once the
 
 | Feature | Commands |
 | --- | --- |
-| [Renaming images](#-rename-images-in-current-note) | **Rename images in current note**, **Rename images in image folders** |
+| [Image notes](#-image-notes) | **Update current note**, **Update notes in image folders** |
 | [Daily notes](#-daily-notes) | **Recalculate properties of current daily note**, **Recalculate properties of all daily notes** |
 
-## 🖼️ Rename images in current note
+## 🖼️ Image notes
+
+The notes kept in the **image folders** named in the settings are brought into shape by a handful of **rules**, each switched on and configured in the settings on its own:
+
+| Rule | What it does |
+| --- | --- |
+| [Renaming images](#-renaming-images) | Names the images embedded in a note after the note itself |
+| [Date of a tweet](#-date-of-a-tweet) | Writes the day the tweet the note links to was posted on into the note |
+
+The rules are applied in that order, one note at a time. **A note is only written when a rule would leave it saying something other than it does**, so a run over folders that are already in order writes nothing and leaves a thousand modification dates alone. A rule that goes wrong does not hold up the ones behind it — the renaming of the images and the date of a tweet have nothing to do with each other — and the notice says what was done and what was not.
+
+### Update current note
+
+Applies every switched-on rule to the note that is open and reports what each of them came to.
+
+The command is not offered at all unless the note in front of you sits in one of the image folders. On anything else it does not appear in the command palette, and a shortcut bound to it does nothing.
+
+The links a renaming rewrites are edited in the open note itself, as one undoable step; a property is written to the file.
+
+### Update notes in image folders
+
+The same, for every note of the image folders, one note after the other. Notes that are open have their links rewritten through the editor; the rest are written straight to disk.
+
+A single notice sums the run up — how many notes were written, out of how many — and names every rule that had to be left undone, with the note it belongs to.
+
+### Updating when the vault is opened
+
+With **Update when the vault is opened** switched on, the run above happens once by itself: right after Obsidian has read the vault in, the notes of the image folders are gone through and whatever is out of place is put right. It reports only when it wrote something or ran into trouble.
+
+It is one of the two runs nobody asks for — the other one is the daily notes run below. The plugin does not listen to the vault: a note is never looked at while it is being written, and images never move under your hands. Everything else happens when a command is run.
+
+## 🏷️ Renaming images
 
 It renames every image embedded in the note after the note itself, numbering the images in the order they first appear:
 
@@ -66,17 +97,24 @@ The renaming is planned in full before anything happens. If a name the plan need
 
 Renaming goes through the Obsidian file manager, so it honours the **Automatically update internal links** setting: when it is on, Obsidian rewrites the links itself and the plugin only checks the result; when it is off, the plugin rewrites the links of the current note in one undoable step. Links to the images from *other* notes are Obsidian's business either way.
 
-## 📁 Rename images in image folders
+## 🐦 Date of a tweet
 
-The same renaming, applied to every note of the **image folders** named in the settings, one note after the other. Notes that are open are rewritten through the editor, so the change stays undoable; the rest are written straight to disk.
+A note made from something seen on X usually keeps the address it came from. The day the tweet was posted on is written in that address already — the id of a tweet carries the millisecond it was handed out at — so the plugin reads the day off the link and writes it into the note:
 
-A single notice sums the run up — how many images were renamed in how many notes — and names every note that had to be left alone, with the reason.
+```yaml
+---
+date: 2017-04-06
+---
+```
 
-## 🚀 Renaming when the vault is opened
-
-With **Rename images when the vault is opened** switched on, the run above happens once by itself: right after Obsidian has read the vault in, the notes of the image folders are gone through and whatever is out of place is put right. It reports only when it renamed something or ran into trouble.
-
-It is one of the two runs nobody asks for — the other one is the nutrition run below. The plugin does not listen to the vault: a note is never looked at while it is being written, and images never move under your hands. Everything else happens when a command is run.
+- Both `x.com` and `twitter.com` are recognised, with any subdomain (`mobile.twitter.com`) and with anything the address carries behind the id (`?s=20`, `/photo/1`). The address has to carry its scheme, `https://` or `http://`, so that a word ending in `x.com` is never taken for a link.
+- A link in the frontmatter counts as well — that is where a note tends to keep the address it was made from — while fenced code blocks are left alone.
+- A note linking to several tweets is dated after the first of them, which is the one it was written about.
+- The day is the one it was in **UTC**, so that the same link always comes out as the same date, wherever the vault is opened.
+- Nothing is fetched from the network, so the date of a link is known even for a tweet that has since been deleted.
+- **A date the note already carries is written over.** The id of the tweet is what the day is taken from; a date typed by hand loses.
+- Tweets from before November 2010 carry no timestamp in their ids — those were counted up one by one — and a link to one of them is left alone.
+- The property the date goes into is named in the settings; blank falls back to `date`.
 
 ## 📅 Daily notes
 
@@ -177,14 +215,17 @@ The count comes from the index Obsidian keeps rather than from the text of the n
 
 ## 🐞 Debugging output
 
-Everything the plugin does to the vault is written to the developer console (`Ctrl+Shift+I` → **Console**, filter by `[Toolbox]`): how many notes of the vault a run considered, every image rename, every image left alone because other notes use it — named one by one — every note that is written back, with the number of links rewritten in it, how many eating records were read and from where, and every daily note whose properties are written. Notes that could not be processed come out as warnings.
+Everything the plugin does to the vault is written to the developer console (`Ctrl+Shift+I` → **Console**, filter by `[Toolbox]`): how many notes of the vault a run considered, every image rename, every image left alone because other notes use it — named one by one — every note that is written back, with the number of links rewritten in it, every date taken from a tweet, how many eating records were read and from where, and every daily note whose properties are written. Notes that could not be processed come out as warnings.
 
 ## ⚙️ Settings
 
 | Setting | What it does |
 | --- | --- |
-| **Image folders** | The folders the two features above work on, subfolders included. Any number of them; each row picks a folder of the vault, and blank rows are ignored. The vault root cannot be given as a folder — a folder has to be named. |
-| **Rename images when the vault is opened** | Whether the folders are gone through once at startup. Switching it on changes nothing right away — it takes effect the next time the vault is opened. To go through the folders now, run the command. |
+| **Image folders** | The folders the rules above are applied to, subfolders included. Any number of them; each row picks a folder of the vault, and blank rows are ignored. The vault root cannot be given as a folder — a folder has to be named. |
+| **Update when the vault is opened** | Whether the notes of those folders are gone through once at startup. Switching it on changes nothing right away — it takes effect the next time the vault is opened. To go through the folders now, run the command. |
+| **Rename images** | Whether the images of a note are named after the note at all. |
+| **Fill in the date of the tweet** | Whether the day a linked tweet was posted on is written into the note at all. |
+| **Date** | The property that day is written to. Blank falls back to `date`. |
 | **Daily notes folder** | The folder the daily notes are kept in. Left empty, the folder of the core **Daily notes** plugin is used. |
 | **Recalculate when the vault is opened** | Whether every daily note is worked out once at startup. As above, switching it on takes effect the next time the vault is opened. |
 | **Count nutrition** | Whether what was eaten is counted for a daily note at all. |
@@ -197,11 +238,11 @@ Folders are matched without regard to case, and a folder holds everything below 
 
 ## 🙂 Usage
 
-Open a note, then run **Rename images in current note** from the command palette (`Ctrl/Cmd+P`). To go through the image folders instead, run **Rename images in image folders**.
+Open a note of an image folder, then run **Update current note** from the command palette (`Ctrl/Cmd+P`). To go through every note of those folders instead, run **Update notes in image folders**.
 
 Open a daily note and run **Recalculate properties of current daily note** to write its numbers, or **Recalculate properties of all daily notes** to go through the whole vault.
 
-All four work only when they are run. Nothing is renamed while a note is being edited, and no daily note is written unless a value in it would change.
+All four work only when they are run. Nothing is renamed while a note is being edited, and no note is written unless something in it would change.
 
 ## 🔨 Building
 
@@ -279,7 +320,11 @@ Alternatively, to develop against a live vault without copying anything, clone t
 | [src/images/paths.ts](src/images/paths.ts) | Vault path arithmetic |
 | [src/images/plan.ts](src/images/plan.ts) | New names, name conflicts and the resulting link edits |
 | [src/images/rename.ts](src/images/rename.ts) | Carrying out a renaming safely, and its outcome |
-| [src/images/folders.ts](src/images/folders.ts) | Running over the notes of the image folders |
+| [src/image-notes/rules.ts](src/image-notes/rules.ts) | What a rule is, and the run that applies the rules to a note |
+| [src/image-notes/run.ts](src/image-notes/run.ts) | Running over the notes of the image folders |
+| [src/images/rule.ts](src/images/rule.ts) | The renaming of the images as a rule |
+| [src/tweets/tweets.ts](src/tweets/tweets.ts) | Reading the day a tweet was posted on out of its address |
+| [src/tweets/rule.ts](src/tweets/rule.ts) | The date of a tweet as a rule |
 | [src/markdown/frontmatter.ts](src/markdown/frontmatter.ts) | Writing single properties without reformatting the rest |
 | [src/daily-notes/notes.ts](src/daily-notes/notes.ts) | Telling a daily note apart from any other note |
 | [src/daily-notes/metrics.ts](src/daily-notes/metrics.ts) | What a metric is, and the run that merges them into one write |
@@ -304,7 +349,7 @@ Alternatively, to develop against a live vault without copying anything, clone t
 
 The logic is independent of the Obsidian API and carries the bulk of the test suite. It reaches the vault only through an interface — `ImageRenameHost` in [src/images/rename.ts](src/images/rename.ts), `DailyNotesHost` in [src/daily-notes/metrics.ts](src/daily-notes/metrics.ts) — which the matching `vault-host.ts` implements against Obsidian and the tests implement in memory.
 
-A new metric is a `DayMetricSource`: it declares the properties it owns, reads what it needs when the run opens it, and answers what those properties come to for a note. Merging, comparing and writing are not its business. Adding one means a folder under `src/`, a line in `ToolboxPlugin.metrics()` and a section in the settings tab.
+A new rule of the image folders is a `NoteRule`: it is handed one note and answers what it did to it, what it found already in order, or why it could not be applied. A new metric of a daily note is a `DayMetricSource`: it declares the properties it owns, reads what it needs when the run opens it, and answers what those properties come to for a note — merging, comparing and writing are not its business. Adding either means a folder under `src/`, a line in `ToolboxPlugin.rules()` or `ToolboxPlugin.metrics()`, and a section in the settings tab.
 
 ## 🙏 Credits
 

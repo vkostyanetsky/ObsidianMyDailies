@@ -5,6 +5,36 @@ import { NUTRIENTS } from "../nutrition/totals";
 /** The property each nutrient is written to, by nutrient. */
 export type NutritionProperties = Record<Nutrient, string>;
 
+/** The renaming rule: images are named after the note they are embedded in. */
+export interface RenameImagesSettings {
+	/** Whether the images of a note are renamed at all. */
+	enabled: boolean;
+}
+
+/** The tweet date rule: the day the tweet a note links to was posted on. */
+export interface TweetDateSettings {
+	/** Whether the date is worked out at all. */
+	enabled: boolean;
+	/** The property of the note the date is written to. */
+	property: string;
+}
+
+/**
+ * What a run over the notes of the image folders needs, whichever rules take
+ * part in it.
+ */
+export interface ImageNotesSettings {
+	/**
+	 * Folders whose notes the rules apply to, as vault-relative paths, exactly
+	 * as the user typed them.
+	 */
+	folders: string[];
+	/** Whether those notes are gone through once when the vault is opened. */
+	autoUpdate: boolean;
+	renameImages: RenameImagesSettings;
+	tweetDate: TweetDateSettings;
+}
+
 /** What a run over the daily notes needs, whichever metrics take part in it. */
 export interface DailyNotesSettings {
 	/**
@@ -36,13 +66,7 @@ export interface OpenTasksSettings {
 
 /** Everything the plugin remembers between sessions. */
 export interface ToolboxSettings {
-	/**
-	 * Folders whose notes take part in the automatic renaming, as vault-relative
-	 * paths, exactly as the user typed them.
-	 */
-	imageFolders: string[];
-	/** Whether the notes of those folders are processed on their own. */
-	autoRenameImages: boolean;
+	imageNotes: ImageNotesSettings;
 	dailyNotes: DailyNotesSettings;
 	nutrition: NutritionSettings;
 	openTasks: OpenTasksSettings;
@@ -60,10 +84,19 @@ export const DEFAULT_NUTRITION_PROPERTIES: NutritionProperties = {
 /** The property the open tasks are counted into unless the user renames it. */
 export const DEFAULT_OPEN_TASKS_PROPERTY = "tasks";
 
+/** The property the date of a tweet is written to unless it is renamed. */
+export const DEFAULT_TWEET_DATE_PROPERTY = "date";
+
 /** The settings a fresh installation starts with. */
 export const DEFAULT_SETTINGS: ToolboxSettings = {
-	imageFolders: [],
-	autoRenameImages: false,
+	imageNotes: {
+		folders: [],
+		autoUpdate: false,
+		// The renaming is what the plugin was written for, so it takes part
+		// from the start. Without a folder there is nothing to go through.
+		renameImages: { enabled: true },
+		tweetDate: { enabled: false, property: DEFAULT_TWEET_DATE_PROPERTY },
+	},
 	dailyNotes: { folder: "", autoUpdate: false },
 	nutrition: {
 		enabled: false,
@@ -132,6 +165,13 @@ function asBoolean(value: unknown, fallback: boolean): boolean {
 	return typeof value === "boolean" ? value : fallback;
 }
 
+/** The folders as they were stored, anything that is not a path left out. */
+function readFolders(value: unknown): string[] {
+	return Array.isArray(value)
+		? value.filter((folder): folder is string => typeof folder === "string")
+		: [];
+}
+
 /** Reads the property names back, filling in the ones that name nothing. */
 function readNutritionProperties(data: unknown): NutritionProperties {
 	const stored = asRecord(data);
@@ -147,6 +187,40 @@ function readNutritionProperties(data: unknown): NutritionProperties {
 }
 
 /**
+ * Reads the settings of the image folders back.
+ *
+ * There was a single rule at first — the renaming — and its settings sat flat
+ * at the top: one naming the folders, one saying whether they were gone
+ * through when the vault was opened. They are still read from there when the
+ * nested ones are missing, so that an installation set up back then keeps its
+ * folders and goes on renaming.
+ */
+function readImageNotes(stored: Record<string, unknown>): ImageNotesSettings {
+	const imageNotes = asRecord(stored.imageNotes);
+	const renameImages = asRecord(imageNotes.renameImages);
+	const tweetDate = asRecord(imageNotes.tweetDate);
+	const defaults = DEFAULT_SETTINGS.imageNotes;
+
+	return {
+		folders: readFolders(imageNotes.folders ?? stored.imageFolders),
+		autoUpdate: asBoolean(
+			imageNotes.autoUpdate,
+			asBoolean(stored.autoRenameImages, defaults.autoUpdate),
+		),
+		renameImages: {
+			enabled: asBoolean(renameImages.enabled, defaults.renameImages.enabled),
+		},
+		tweetDate: {
+			enabled: asBoolean(tweetDate.enabled, defaults.tweetDate.enabled),
+			property: normalizeProperty(
+				asString(tweetDate.property, DEFAULT_TWEET_DATE_PROPERTY),
+				DEFAULT_TWEET_DATE_PROPERTY,
+			),
+		},
+	};
+}
+
+/**
  * Reads the settings back as they were stored, filling in everything that is
  * missing or of the wrong shape with its default.
  *
@@ -158,17 +232,13 @@ function readNutritionProperties(data: unknown): NutritionProperties {
  */
 export function readSettings(data: unknown): ToolboxSettings {
 	const stored = asRecord(data);
-	const folders = stored.imageFolders;
 	const dailyNotes = asRecord(stored.dailyNotes);
 	const nutrition = asRecord(stored.nutrition);
 	const openTasks = asRecord(stored.openTasks);
 	const oldRecordsFolder = asString(stored.nutritionRecordsFolder, "");
 
 	return {
-		imageFolders: Array.isArray(folders)
-			? folders.filter((folder): folder is string => typeof folder === "string")
-			: [...DEFAULT_SETTINGS.imageFolders],
-		autoRenameImages: asBoolean(stored.autoRenameImages, DEFAULT_SETTINGS.autoRenameImages),
+		imageNotes: readImageNotes(stored),
 		dailyNotes: {
 			folder: asString(dailyNotes.folder, asString(stored.dailyNotesFolder, "")),
 			autoUpdate: asBoolean(

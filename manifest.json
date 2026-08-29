@@ -3,7 +3,7 @@
 	"name": "Toolbox",
 	"version": "1.0.0",
 	"minAppVersion": "1.5.0",
-	"description": "Renames the images embedded in a note after the note itself, and adds up the nutrition of a day into its daily note.",
+	"description": "Keeps the notes of the image folders in shape — naming their images after them, dating them after the tweet they link to — and works out the properties of a daily note.",
 	"author": "Vlad Kostyanetsky",
 	"isDesktopOnly": false
 }

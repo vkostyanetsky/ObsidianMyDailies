@@ -7,6 +7,7 @@ import type { Nutrient } from "../nutrition/totals";
 import {
 	DEFAULT_NUTRITION_PROPERTIES,
 	DEFAULT_OPEN_TASKS_PROPERTY,
+	DEFAULT_TWEET_DATE_PROPERTY,
 	normalizeProperty,
 } from "./settings";
 import { FolderSuggest } from "./folder-suggest";
@@ -19,6 +20,10 @@ const NUTRIENT_NAMES: Record<Nutrient, string> = {
 	carbs: "Carbohydrates",
 	water: "Water",
 };
+
+/** What a switch of a rule or a metric says under its name. */
+const RULE_SWITCH_DESCRIPTION = "Whether this is applied to a note of the image folders at all.";
+const METRIC_SWITCH_DESCRIPTION = "Whether this is worked out for a daily note at all.";
 
 /** The settings of the plugin, as they are shown in the Obsidian preferences. */
 export class ToolboxSettingTab extends PluginSettingTab {
@@ -33,42 +38,98 @@ export class ToolboxSettingTab extends PluginSettingTab {
 	display(): void {
 		this.containerEl.empty();
 
-		this.displayImages();
+		this.displayImageNotes();
+		this.displayRenameImages();
+		this.displayTweetDate();
 		this.displayDailyNotes();
 		this.displayNutrition();
 		this.displayTasks();
 	}
 
-	/** The folders the image renaming works on, and its run at startup. */
-	private displayImages(): void {
+	/** What every rule shares: which notes it works on, and when. */
+	private displayImageNotes(): void {
 		new Setting(this.containerEl)
 			.setName("Image folders")
 			.setDesc(
-				"Folders whose notes the renaming applies to, subfolders included. " +
-					"Blank rows are ignored.",
+				"Folders whose notes the rules below are applied to, subfolders included. " +
+					"Blank rows are ignored. A note is only ever written when one of its " +
+					"rules would leave it saying something else than it does.",
 			)
 			.setHeading();
 
 		this.displayFolders();
 
 		new Setting(this.containerEl)
-			.setName("Rename images when the vault is opened")
+			.setName("Update when the vault is opened")
 			.setDesc(
 				"Go through the notes of these folders once, right after the vault has been " +
-					"read in, and rename the images that are out of place. Notes are never " +
-					"touched while they are being written; to go through the folders at any " +
-					"other moment, run the command.",
+					"read in. Nothing is watched afterwards; to go through the folders at " +
+					"any other moment, run one of the two commands.",
 			)
 			.addToggle((toggle) =>
-				toggle.setValue(this.plugin.settings.autoRenameImages).onChange(async (value) => {
-					this.plugin.settings.autoRenameImages = value;
+				toggle
+					.setValue(this.plugin.settings.imageNotes.autoUpdate)
+					.onChange(async (value) => {
+						this.plugin.settings.imageNotes.autoUpdate = value;
 
-					// Switching this on never starts a run of its own: notes are
-					// picked up as they are written from here on, and the folders
-					// are gone through when the vault is opened the next time.
-					await this.plugin.saveSettings();
-				}),
+						// Switching this on never starts a run of its own: the
+						// folders are gone through when the vault is opened the
+						// next time, or when the command is run.
+						await this.plugin.saveSettings();
+					}),
 			);
+	}
+
+	/** The renaming rule: images are named after the note they sit in. */
+	private displayRenameImages(): void {
+		new Setting(this.containerEl)
+			.setName("Renaming images")
+			.setDesc(
+				"Renames the images embedded in a note after the note itself, numbering " +
+					"them in order of appearance, and points the links of the note at the " +
+					"new names. An image another note shows as well is left alone.",
+			)
+			.setHeading();
+
+		this.displaySwitch(
+			"Rename images",
+			RULE_SWITCH_DESCRIPTION,
+			() => this.plugin.settings.imageNotes.renameImages.enabled,
+			(value) => {
+				this.plugin.settings.imageNotes.renameImages.enabled = value;
+			},
+		);
+	}
+
+	/** The tweet rule: the day the tweet a note links to was posted on. */
+	private displayTweetDate(): void {
+		new Setting(this.containerEl)
+			.setName("Date of a tweet")
+			.setDesc(
+				"Works out the day the tweet a note links to was posted on — from the " +
+					"address alone, nothing is fetched — and writes it into the note. A " +
+					"note linking to several tweets is dated after the first of them, and " +
+					"a date it already carries is written over.",
+			)
+			.setHeading();
+
+		this.displaySwitch(
+			"Fill in the date of the tweet",
+			RULE_SWITCH_DESCRIPTION,
+			() => this.plugin.settings.imageNotes.tweetDate.enabled,
+			(value) => {
+				this.plugin.settings.imageNotes.tweetDate.enabled = value;
+			},
+		);
+
+		this.displayProperty(
+			"Date",
+			DEFAULT_TWEET_DATE_PROPERTY,
+			() => this.plugin.settings.imageNotes.tweetDate.property,
+			(value) => {
+				this.plugin.settings.imageNotes.tweetDate.property = value;
+			},
+		);
 	}
 
 	/** What every metric of a daily note shares: where they are, and when. */
@@ -121,8 +182,9 @@ export class ToolboxSettingTab extends PluginSettingTab {
 			)
 			.setHeading();
 
-		this.displayEnabled(
+		this.displaySwitch(
 			"Count nutrition",
+			METRIC_SWITCH_DESCRIPTION,
 			() => this.plugin.settings.nutrition.enabled,
 			(value) => {
 				this.plugin.settings.nutrition.enabled = value;
@@ -161,8 +223,9 @@ export class ToolboxSettingTab extends PluginSettingTab {
 			)
 			.setHeading();
 
-		this.displayEnabled(
+		this.displaySwitch(
 			"Count open tasks",
+			METRIC_SWITCH_DESCRIPTION,
 			() => this.plugin.settings.openTasks.enabled,
 			(value) => {
 				this.plugin.settings.openTasks.enabled = value;
@@ -181,12 +244,12 @@ export class ToolboxSettingTab extends PluginSettingTab {
 
 	/** One row per image folder, plus the button that adds another one. */
 	private displayFolders(): void {
-		this.plugin.settings.imageFolders.forEach((folder, index) => {
+		this.plugin.settings.imageNotes.folders.forEach((folder, index) => {
 			new Setting(this.containerEl)
 				.setClass("toolbox-folder-row")
 				.addSearch((search) => {
 					const save = async (value: string): Promise<void> => {
-						this.plugin.settings.imageFolders[index] = value;
+						this.plugin.settings.imageNotes.folders[index] = value;
 						await this.plugin.saveSettings();
 					};
 
@@ -207,7 +270,7 @@ export class ToolboxSettingTab extends PluginSettingTab {
 						.setIcon("trash")
 						.setTooltip("Remove folder")
 						.onClick(async () => {
-							this.plugin.settings.imageFolders.splice(index, 1);
+							this.plugin.settings.imageNotes.folders.splice(index, 1);
 							await this.plugin.saveSettings();
 							this.display();
 						}),
@@ -219,18 +282,23 @@ export class ToolboxSettingTab extends PluginSettingTab {
 				.setButtonText("Add folder")
 				.setTooltip("Add a folder to the list")
 				.onClick(async () => {
-					this.plugin.settings.imageFolders.push("");
+					this.plugin.settings.imageNotes.folders.push("");
 					await this.plugin.saveSettings();
 					this.display();
 				}),
 		);
 	}
 
-	/** The switch a metric is turned on and off by. */
-	private displayEnabled(name: string, read: () => boolean, write: (value: boolean) => void): void {
+	/** The switch a rule or a metric is turned on and off by. */
+	private displaySwitch(
+		name: string,
+		description: string,
+		read: () => boolean,
+		write: (value: boolean) => void,
+	): void {
 		new Setting(this.containerEl)
 			.setName(name)
-			.setDesc("Whether this is worked out for a daily note at all.")
+			.setDesc(description)
 			.addToggle((toggle) =>
 				toggle.setValue(read()).onChange(async (value) => {
 					write(value);
@@ -269,7 +337,7 @@ export class ToolboxSettingTab extends PluginSettingTab {
 			});
 	}
 
-	/** The property one value of a metric ends up in. */
+	/** The property one value of a rule or a metric ends up in. */
 	private displayProperty(
 		name: string,
 		fallback: string,

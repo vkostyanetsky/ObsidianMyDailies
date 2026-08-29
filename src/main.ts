@@ -8,14 +8,16 @@ import {
 	updateDailyNote,
 } from "./daily-notes/metrics";
 import { asDailyNote, createDailyNotesHost, logFailures } from "./daily-notes/vault-host";
-import { renameImagesInFolders } from "./images/folders";
-import { describeNotesRun, describeOutcome, renameNoteImages } from "./images/rename";
-import { createImageRenameHost } from "./images/vault-host";
+import type { ImageNote, NoteRule } from "./image-notes/rules";
+import { describeNoteOutcome, describeNotesRun, updateNote } from "./image-notes/rules";
+import { imageNoteOf, updateNotesInFolders } from "./image-notes/run";
+import { createRenameImagesRule } from "./images/rule";
 import { createNutritionMetric } from "./nutrition/metric";
 import type { ToolboxSettings } from "./settings/settings";
 import { hasFolders, readSettings } from "./settings/settings";
 import { ToolboxSettingTab } from "./settings/tab";
 import { createOpenTasksMetric } from "./tasks/metric";
+import { createTweetDateRule } from "./tweets/rule";
 
 /** How long the summary of a run over many notes stays on screen. */
 const SUMMARY_NOTICE_DURATION = 10_000;
@@ -26,19 +28,31 @@ export default class ToolboxPlugin extends Plugin {
 	async onload(): Promise<void> {
 		this.settings = readSettings(await this.loadData());
 
+		// The command is not offered at all unless the note in front of the user
+		// is one of those the rules are meant for.
 		this.addCommand({
-			id: "rename-images",
-			name: "Rename images in current note",
-			callback: () => {
-				void this.renameImagesOfActiveNote();
+			id: "update-image-note",
+			name: "Update current note",
+			checkCallback: (checking) => {
+				const note = this.activeImageNote();
+
+				if (note === null) {
+					return false;
+				}
+
+				if (!checking) {
+					void this.updateImageNote(note);
+				}
+
+				return true;
 			},
 		});
 
 		this.addCommand({
-			id: "rename-images-in-folders",
-			name: "Rename images in image folders",
+			id: "update-image-notes",
+			name: "Update notes in image folders",
 			callback: () => {
-				void this.renameImagesInImageFolders();
+				void this.updateImageNotes();
 			},
 		});
 
@@ -77,8 +91,8 @@ export default class ToolboxPlugin extends Plugin {
 		// the vault was closed. Nothing is watched afterwards, so a note is only
 		// ever touched on demand.
 		this.app.workspace.onLayoutReady(() => {
-			if (this.settings.autoRenameImages) {
-				void this.renameImagesInImageFolders(true);
+			if (this.settings.imageNotes.autoUpdate) {
+				void this.updateImageNotes(true);
 			}
 
 			if (this.settings.dailyNotes.autoUpdate) {
@@ -93,21 +107,52 @@ export default class ToolboxPlugin extends Plugin {
 	}
 
 	/**
-	 * Renames the images embedded in the active Markdown note after the note
-	 * itself, numbering them in order of appearance, and reports the result.
+	 * The rules that are switched on, in the order they are applied in. A new
+	 * one is added here and nowhere else.
 	 */
-	private async renameImagesOfActiveNote(): Promise<void> {
-		const outcome = await renameNoteImages(createImageRenameHost(this.app));
+	private rules(): NoteRule[] {
+		return [
+			createRenameImagesRule(this.app, this.settings),
+			createTweetDateRule(this.app, this.settings),
+		].filter((rule): rule is NoteRule => rule !== null);
+	}
 
-		new Notice(describeOutcome(outcome));
+	/**
+	 * The note in front of the user, but only when it sits in one of the image
+	 * folders. Anything else is not a note the rules are meant for, and the
+	 * command that works on one is not offered for it.
+	 */
+	private activeImageNote(): ImageNote | null {
+		const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+
+		if (view === null || view.file === null) {
+			return null;
+		}
+
+		return imageNoteOf(view.file, this.settings.imageNotes.folders);
+	}
+
+	/** Applies every rule that is switched on to one note. */
+	private async updateImageNote(note: ImageNote): Promise<void> {
+		new Notice(describeNoteOutcome(await updateNote(this.rules(), note)));
 	}
 
 	/**
 	 * Does the same for every note of the image folders. A quiet run only speaks
-	 * up when something was renamed or went wrong.
+	 * up when something was written or went wrong.
 	 */
-	private async renameImagesInImageFolders(quiet = false): Promise<void> {
-		if (!hasFolders(this.settings.imageFolders)) {
+	private async updateImageNotes(quiet = false): Promise<void> {
+		const rules = this.rules();
+
+		if (rules.length === 0) {
+			if (!quiet) {
+				new Notice(describeNoteOutcome({ kind: "no-rules" }));
+			}
+
+			return;
+		}
+
+		if (!hasFolders(this.settings.imageNotes.folders)) {
 			if (!quiet) {
 				new Notice("No image folders are set. Add one in the settings of the plugin.");
 			}
@@ -115,9 +160,13 @@ export default class ToolboxPlugin extends Plugin {
 			return;
 		}
 
-		const summary = await renameImagesInFolders(this.app, this.settings.imageFolders);
+		const summary = await updateNotesInFolders(
+			this.app,
+			this.settings.imageNotes.folders,
+			rules,
+		);
 
-		if (quiet && summary.renamed === 0 && summary.failures.length === 0) {
+		if (quiet && summary.updated === 0 && summary.failures.length === 0) {
 			return;
 		}
 

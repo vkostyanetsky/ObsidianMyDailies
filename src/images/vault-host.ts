@@ -179,17 +179,3 @@ export function createNoteRenameHost(app: App, note: TFile): ImageRenameHost {
 
 	return editor === null ? fileHost(app, note) : editorHost(app, note, editor);
 }
-
-/**
- * Binds the image renaming to the Markdown note that is open right now, or
- * returns `null` when there is none.
- */
-export function createImageRenameHost(app: App): ImageRenameHost | null {
-	const view = app.workspace.getActiveViewOfType(MarkdownView);
-
-	if (view === null || view.file === null) {
-		return null;
-	}
-
-	return editorHost(app, view.file, view.editor);
-}
