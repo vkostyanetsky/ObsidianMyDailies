@@ -1,4 +1,4 @@
-# My Dailies 🧰 📅
+# My Dailies 🧰 📅 ✅
 
 An Obsidian plugin holding the odds and ends my own vault needs: working out the numbers a daily note carries — what was eaten that day, how many tasks are still open — and pointing from a day to the days and the months around it.
 
