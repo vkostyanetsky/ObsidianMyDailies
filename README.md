@@ -2,7 +2,7 @@
 
 An Obsidian plugin holding the odds and ends my own vault needs: working out the numbers a daily note carries — what was eaten that day, how many tasks are still open — and pointing from a day to the days and the months around it.
 
-> **A personal tool.** This plugin exists to make my daily routine easier, and its behaviour is shaped entirely by how I structure my notes for those projects. It is not intended to be a general-purpose Obsidian plugin, and there are no plans to submit it to the community catalogue. You are welcome to use it if your notes happen to follow the same conventions, but nothing here is designed with anyone else's workflow in mind.
+> **A personal tool.** This plugin exists to make my day-to-day work easier, and its behaviour is shaped entirely by how I structure my notes. It is not intended to be a general-purpose Obsidian plugin, and there are no plans to submit it to the community catalogue. You are welcome to use it if your notes happen to follow the same conventions, but nothing here is designed with anyone else's workflow in mind.
 
 ## ✨ What it does
 
