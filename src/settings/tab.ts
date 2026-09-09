@@ -1,5 +1,5 @@
-import type { App } from "obsidian";
-import { PluginSettingTab, Setting } from "obsidian";
+import type { App, SettingDefinitionItem } from "obsidian";
+import { PluginSettingTab } from "obsidian";
 
 import type MyDailiesPlugin from "../main";
 import { DEFAULT_MONTHLY_NOTE_NAME } from "../navigation/dashboard";
@@ -10,8 +10,28 @@ import {
 	DEFAULT_NUTRITION_PROPERTIES,
 	DEFAULT_OPEN_TASKS_PROPERTY,
 	normalizeProperty,
+	readSettingPath,
+	writeSettingPath,
 } from "./settings";
-import { FolderSuggest } from "./folder-suggest";
+
+/**
+ * Where in the settings of the plugin a control of this tab reads and writes.
+ * The path is walked by `readSettingPath` and `writeSettingPath`, so a setting
+ * is added by naming it here and nowhere else.
+ */
+type SettingKey =
+	| "dailyNotes.folder"
+	| "dailyNotes.autoUpdate"
+	| "nutrition.enabled"
+	| "nutrition.recordsFolder"
+	| `nutrition.properties.${Nutrient}`
+	| "openTasks.enabled"
+	| "openTasks.property"
+	| "navigation.monthlyNotesFolder"
+	| "navigation.monthlyNoteName";
+
+/** One row of the tab, as Obsidian renders it from version 1.13 on. */
+type SettingItem = SettingDefinitionItem<SettingKey>;
 
 /** How each nutrient is named in the settings. */
 const NUTRIENT_NAMES: Record<Nutrient, string> = {
@@ -25,7 +45,162 @@ const NUTRIENT_NAMES: Record<Nutrient, string> = {
 /** What a switch of a metric says under its name. */
 const METRIC_SWITCH_DESCRIPTION = "Whether this is worked out for a daily note at all.";
 
-/** The settings of the plugin, as they are shown in the Obsidian preferences. */
+/** The setting a nutrient is written to, by nutrient. */
+function nutrientKey(nutrient: Nutrient): SettingKey {
+	return `nutrition.properties.${nutrient}`;
+}
+
+/**
+ * The default each setting that names a property or a note falls back on. Those
+ * cannot be left saying nothing, or a run would write to a nameless property.
+ */
+const FALLBACKS: ReadonlyMap<string, string> = new Map<SettingKey, string>([
+	["openTasks.property", DEFAULT_OPEN_TASKS_PROPERTY],
+	["navigation.monthlyNoteName", DEFAULT_MONTHLY_NOTE_NAME],
+	...NUTRIENTS.map((nutrient): [SettingKey, string] => [
+		nutrientKey(nutrient),
+		DEFAULT_NUTRITION_PROPERTIES[nutrient],
+	]),
+]);
+
+/** A heading, with what the settings underneath it are for. */
+function heading(name: string, description: string): SettingItem {
+	return { name, desc: description };
+}
+
+/** The switch a metric is turned on and off by. */
+function metricSwitch(name: string, key: SettingKey): SettingItem {
+	return {
+		name,
+		desc: METRIC_SWITCH_DESCRIPTION,
+		control: { type: "toggle", key },
+	};
+}
+
+/** One folder of the vault, picked by hand or from the suggestions. */
+function folder(name: string, description: string, key: SettingKey): SettingItem {
+	return {
+		name,
+		desc: description,
+		control: { type: "folder", key, placeholder: "Folder in the vault" },
+	};
+}
+
+/** A line of text that falls back to a default when it is left empty. */
+function text(
+	name: string,
+	key: SettingKey,
+	fallback: string,
+	description?: string,
+): SettingItem {
+	return {
+		name,
+		desc: description,
+		control: { type: "text", key, placeholder: fallback, defaultValue: fallback },
+	};
+}
+
+/** What every metric of a daily note shares: where they are, and when. */
+function dailyNotesSettings(): SettingItem[] {
+	return [
+		heading(
+			"Daily notes",
+			"Where the notes that stand for a day are kept, and when the metrics below " +
+				"are worked out for them. A note is only ever written when one of its " +
+				"values would come out different from what it already says.",
+		),
+		folder(
+			"Daily notes folder",
+			"Left empty, the folder of the core Daily notes plugin is used. Only the notes " +
+				"named after a day, such as 2026-08-28, are ever written to.",
+			"dailyNotes.folder",
+		),
+		{
+			name: "Recalculate when the vault is opened",
+			desc:
+				"Go through every daily note once, right after the vault has been read in. " +
+				"Nothing is watched afterwards; to work the values out at any other " +
+				"moment, run one of the two commands.",
+			// Switching this on never starts a run of its own: every daily note is
+			// worked out when the vault is opened the next time, or when the
+			// command is run.
+			control: { type: "toggle", key: "dailyNotes.autoUpdate" },
+		},
+	];
+}
+
+/** The nutrition metric: its records folder and its properties. */
+function nutritionSettings(): SettingItem[] {
+	return [
+		heading(
+			"Nutrition",
+			"Adds up what the eating records of a day state and writes the totals into " +
+				"the daily note of that day.",
+		),
+		metricSwitch("Count nutrition", "nutrition.enabled"),
+		folder(
+			"Nutrition records folder",
+			"Folder the eating records are kept in, subfolders included. Every note in it " +
+				"that carries a day, a product link and an amount is counted.",
+			"nutrition.recordsFolder",
+		),
+		...NUTRIENTS.map((nutrient) =>
+			text(
+				NUTRIENT_NAMES[nutrient],
+				nutrientKey(nutrient),
+				DEFAULT_NUTRITION_PROPERTIES[nutrient],
+			),
+		),
+	];
+}
+
+/** The open tasks metric: a single property to count into. */
+function tasksSettings(): SettingItem[] {
+	return [
+		heading(
+			"Tasks",
+			"Counts the tasks of a daily note that are still open — the lines starting " +
+				"with `- [ ] ` — and writes the number into the note itself.",
+		),
+		metricSwitch("Count open tasks", "openTasks.enabled"),
+		text("Open tasks", "openTasks.property", DEFAULT_OPEN_TASKS_PROPERTY),
+	];
+}
+
+/** The navigation block: where the notes it links to are, and how named. */
+function navigationSettings(): SettingItem[] {
+	return [
+		heading(
+			"Navigation",
+			`A daily note carrying a \`${NAVIGATION_BLOCK}\` code block shows the day ` +
+				"before it and the day after it, together with the month it belongs to " +
+				"and the months on either side of that one. The days are looked for in " +
+				"the daily notes folder above, the months in the folder below. Whatever " +
+				"is written inside the block is shown underneath, and the note itself is " +
+				"never written to.",
+		),
+		folder(
+			"Monthly notes folder",
+			"Folder the notes that stand for a month are kept in. Left empty, they are " +
+				"looked for in the vault root.",
+			"navigation.monthlyNotesFolder",
+		),
+		text(
+			"Monthly note name",
+			"navigation.monthlyNoteName",
+			DEFAULT_MONTHLY_NOTE_NAME,
+			"How a monthly note is named. What stands in curly braces is the month itself, " +
+				"written the way Moment.js writes a date: `Month {YYYY-MM}` names the note " +
+				"`Month 2026-08`, and `{MMMM YYYY}` names it `August 2026`.",
+		),
+	];
+}
+
+/**
+ * The settings of the plugin, as they are shown in the Obsidian preferences.
+ * The rows are described rather than built, so that Obsidian renders them
+ * itself and finds them by its own settings search.
+ */
 export class MyDailiesSettingTab extends PluginSettingTab {
 	private readonly plugin: MyDailiesPlugin;
 
@@ -35,247 +210,31 @@ export class MyDailiesSettingTab extends PluginSettingTab {
 		this.plugin = plugin;
 	}
 
-	display(): void {
-		this.containerEl.empty();
-
-		this.displayDailyNotes();
-		this.displayNutrition();
-		this.displayTasks();
-		this.displayNavigation();
+	getSettingDefinitions(): SettingItem[] {
+		return [
+			...dailyNotesSettings(),
+			...nutritionSettings(),
+			...tasksSettings(),
+			...navigationSettings(),
+		];
 	}
 
-	/** What every metric of a daily note shares: where they are, and when. */
-	private displayDailyNotes(): void {
-		new Setting(this.containerEl)
-			.setName("Daily notes")
-			.setDesc(
-				"Where the notes that stand for a day are kept, and when the metrics below " +
-					"are worked out for them. A note is only ever written when one of its " +
-					"values would come out different from what it already says.",
-			)
-			.setHeading();
-
-		this.displayFolder(
-			"Daily notes folder",
-			"Left empty, the folder of the core Daily notes plugin is used. Only the notes " +
-				"named after a day, such as 2026-08-28, are ever written to.",
-			() => this.plugin.settings.dailyNotes.folder,
-			(value) => {
-				this.plugin.settings.dailyNotes.folder = value;
-			},
-		);
-
-		new Setting(this.containerEl)
-			.setName("Recalculate when the vault is opened")
-			.setDesc(
-				"Go through every daily note once, right after the vault has been read in. " +
-					"Nothing is watched afterwards; to work the values out at any other " +
-					"moment, run one of the two commands.",
-			)
-			.addToggle((toggle) =>
-				toggle
-					.setValue(this.plugin.settings.dailyNotes.autoUpdate)
-					.onChange(async (value) => {
-						this.plugin.settings.dailyNotes.autoUpdate = value;
-
-						// Switching this on never starts a run of its own: every
-						// daily note is worked out when the vault is opened the
-						// next time, or when the command is run.
-						await this.plugin.saveSettings();
-					}),
-			);
+	getControlValue(key: string): unknown {
+		return readSettingPath(this.plugin.settings, key);
 	}
 
-	/** The nutrition metric: its records folder and its properties. */
-	private displayNutrition(): void {
-		new Setting(this.containerEl)
-			.setName("Nutrition")
-			.setDesc(
-				"Adds up what the eating records of a day state and writes the totals into " +
-					"the daily note of that day.",
-			)
-			.setHeading();
+	async setControlValue(key: string, value: unknown): Promise<void> {
+		const fallback = FALLBACKS.get(key);
 
-		this.displaySwitch(
-			"Count nutrition",
-			METRIC_SWITCH_DESCRIPTION,
-			() => this.plugin.settings.nutrition.enabled,
-			(value) => {
-				this.plugin.settings.nutrition.enabled = value;
-			},
-		);
+		// A setting that says nothing would leave the plugin with nothing to go
+		// by, so the default steps in until something is typed again.
+		const stored =
+			fallback !== undefined && typeof value === "string"
+				? normalizeProperty(value, fallback)
+				: value;
 
-		this.displayFolder(
-			"Nutrition records folder",
-			"Folder the eating records are kept in, subfolders included. Every note in it " +
-				"that carries a day, a product link and an amount is counted.",
-			() => this.plugin.settings.nutrition.recordsFolder,
-			(value) => {
-				this.plugin.settings.nutrition.recordsFolder = value;
-			},
-		);
+		writeSettingPath(this.plugin.settings, key, stored);
 
-		for (const nutrient of NUTRIENTS) {
-			this.displayProperty(
-				NUTRIENT_NAMES[nutrient],
-				DEFAULT_NUTRITION_PROPERTIES[nutrient],
-				() => this.plugin.settings.nutrition.properties[nutrient],
-				(value) => {
-					this.plugin.settings.nutrition.properties[nutrient] = value;
-				},
-			);
-		}
-	}
-
-	/** The open tasks metric: a single property to count into. */
-	private displayTasks(): void {
-		new Setting(this.containerEl)
-			.setName("Tasks")
-			.setDesc(
-				"Counts the tasks of a daily note that are still open — the lines starting " +
-					"with `- [ ] ` — and writes the number into the note itself.",
-			)
-			.setHeading();
-
-		this.displaySwitch(
-			"Count open tasks",
-			METRIC_SWITCH_DESCRIPTION,
-			() => this.plugin.settings.openTasks.enabled,
-			(value) => {
-				this.plugin.settings.openTasks.enabled = value;
-			},
-		);
-
-		this.displayProperty(
-			"Open tasks",
-			DEFAULT_OPEN_TASKS_PROPERTY,
-			() => this.plugin.settings.openTasks.property,
-			(value) => {
-				this.plugin.settings.openTasks.property = value;
-			},
-		);
-	}
-
-	/** The navigation block: where the notes it links to are, and how named. */
-	private displayNavigation(): void {
-		new Setting(this.containerEl)
-			.setName("Navigation")
-			.setDesc(
-				`A daily note carrying a \`${NAVIGATION_BLOCK}\` code block shows the day ` +
-					"before it and the day after it, together with the month it belongs to " +
-					"and the months on either side of that one. The days are looked for in " +
-					"the daily notes folder above, the months in the folder below. Whatever " +
-					"is written inside the block is shown underneath, and the note itself is " +
-					"never written to.",
-			)
-			.setHeading();
-
-		this.displayFolder(
-			"Monthly notes folder",
-			"Folder the notes that stand for a month are kept in. Left empty, they are " +
-				"looked for in the vault root.",
-			() => this.plugin.settings.navigation.monthlyNotesFolder,
-			(value) => {
-				this.plugin.settings.navigation.monthlyNotesFolder = value;
-			},
-		);
-
-		this.displayText(
-			"Monthly note name",
-			"How a monthly note is named. What stands in curly braces is the month itself, " +
-				"written the way Moment.js writes a date: `Month {YYYY-MM}` names the note " +
-				"`Month 2026-08`, and `{MMMM YYYY}` names it `August 2026`.",
-			DEFAULT_MONTHLY_NOTE_NAME,
-			() => this.plugin.settings.navigation.monthlyNoteName,
-			(value) => {
-				this.plugin.settings.navigation.monthlyNoteName = value;
-			},
-		);
-	}
-
-	/** The switch a metric is turned on and off by. */
-	private displaySwitch(
-		name: string,
-		description: string,
-		read: () => boolean,
-		write: (value: boolean) => void,
-	): void {
-		new Setting(this.containerEl)
-			.setName(name)
-			.setDesc(description)
-			.addToggle((toggle) =>
-				toggle.setValue(read()).onChange(async (value) => {
-					write(value);
-					await this.plugin.saveSettings();
-				}),
-			);
-	}
-
-	/** One folder of the vault, picked by hand or from the suggestions. */
-	private displayFolder(
-		name: string,
-		description: string,
-		read: () => string,
-		write: (value: string) => void,
-	): void {
-		new Setting(this.containerEl)
-			.setName(name)
-			.setDesc(description)
-			.addSearch((search) => {
-				const save = async (value: string): Promise<void> => {
-					write(value);
-					await this.plugin.saveSettings();
-				};
-
-				search.inputEl.setAttribute("aria-label", name);
-				search
-					.setPlaceholder("Folder in the vault")
-					.setValue(read())
-					.onChange((value) => {
-						void save(value);
-					});
-
-				new FolderSuggest(this.app, search.inputEl, (path) => {
-					void save(path);
-				});
-			});
-	}
-
-	/** The property one value of a metric ends up in. */
-	private displayProperty(
-		name: string,
-		fallback: string,
-		read: () => string,
-		write: (value: string) => void,
-	): void {
-		this.displayText(name, null, fallback, read, write);
-	}
-
-	/** A line of text that falls back to a default when it is left empty. */
-	private displayText(
-		name: string,
-		description: string | null,
-		fallback: string,
-		read: () => string,
-		write: (value: string) => void,
-	): void {
-		const setting = new Setting(this.containerEl).setName(name);
-
-		if (description !== null) {
-			setting.setDesc(description);
-		}
-
-		setting.addText((text) =>
-			text
-				.setPlaceholder(fallback)
-				.setValue(read())
-				.onChange(async (value) => {
-					// A setting that says nothing would leave the plugin with
-					// nothing to go by, so the default steps in until something is
-					// typed again.
-					write(normalizeProperty(value, fallback));
-					await this.plugin.saveSettings();
-				}),
-		);
+		await this.plugin.saveSettings();
 	}
 }

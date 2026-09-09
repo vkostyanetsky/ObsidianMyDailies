@@ -32,7 +32,7 @@ function host(notes: Record<string, string>): DailyNotesHost & { written: Record
 	return {
 		written,
 		dailyNotes: () =>
-			Object.keys(notes).map((date) => ({ path: `Days/${date}.md`, date }) as DailyNote),
+			Object.keys(notes).map((date) => ({ path: `Days/${date}.md`, date })),
 		storedValues: (note, properties) => {
 			const source = notes[note.date];
 			const stored: Record<string, string | null> = {};
@@ -213,7 +213,7 @@ describe("updateAllDailyNotes", () => {
 
 	it("keeps going after a note it could not write", async () => {
 		const vault = host({ "2026-08-26": "---\n---\n", "2026-08-27": "---\n---\n" });
-		const update = vault.updateNote;
+		const update = vault.updateNote.bind(vault);
 
 		vault.updateNote = (note, edit) =>
 			note.date === "2026-08-26"

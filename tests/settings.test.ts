@@ -4,7 +4,9 @@ import {
 	isInFolder,
 	normalizeFolder,
 	normalizeProperty,
+	readSettingPath,
 	readSettings,
+	writeSettingPath,
 	DEFAULT_SETTINGS,
 } from "../src/settings/settings";
 
@@ -91,5 +93,38 @@ describe("readSettings", () => {
 		settings.nutrition.properties.calories = "ккал";
 
 		expect(DEFAULT_SETTINGS.nutrition.properties.calories).toBe("calories");
+	});
+});
+
+describe("readSettingPath", () => {
+	it("reads a setting a control of the settings tab names", () => {
+		const settings = readSettings({});
+
+		expect(readSettingPath(settings, "openTasks.enabled")).toBe(false);
+		expect(readSettingPath(settings, "nutrition.properties.calories")).toBe("calories");
+	});
+
+	it("reads nothing for a path that leads nowhere", () => {
+		expect(readSettingPath(readSettings({}), "nutrition.nothing.here")).toBeUndefined();
+	});
+});
+
+describe("writeSettingPath", () => {
+	it("writes a setting without touching the ones around it", () => {
+		const settings = readSettings({});
+
+		writeSettingPath(settings, "nutrition.properties.calories", "ккал");
+
+		expect(settings.nutrition.properties.calories).toBe("ккал");
+		expect(settings.nutrition.properties.protein).toBe("protein");
+		expect(settings.nutrition.enabled).toBe(false);
+	});
+
+	it("leaves the settings alone when the path leads nowhere", () => {
+		const settings = readSettings({});
+
+		writeSettingPath(settings, "nutrition.nothing.here", "something");
+
+		expect(settings).toEqual(DEFAULT_SETTINGS);
 	});
 });

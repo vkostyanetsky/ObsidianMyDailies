@@ -201,3 +201,43 @@ export function readSettings(data: unknown): MyDailiesSettings {
 		},
 	};
 }
+
+/**
+ * Reads one value out of the settings by the path a control of the settings tab
+ * names it by, such as `nutrition.properties.calories`. A path that leads
+ * nowhere reads as nothing, which is what the control falls back on.
+ */
+export function readSettingPath(settings: MyDailiesSettings, path: string): unknown {
+	let value: unknown = settings;
+
+	for (const step of path.split(".")) {
+		value = asRecord(value)[step];
+	}
+
+	return value;
+}
+
+/**
+ * Writes one value back into the settings by the same path. A path whose parent
+ * is not there is left alone, so that a control cannot invent a setting of its
+ * own next to the ones the plugin knows about.
+ */
+export function writeSettingPath(
+	settings: MyDailiesSettings,
+	path: string,
+	value: unknown,
+): void {
+	const steps = path.split(".");
+	const property = steps.pop();
+	let parent: unknown = settings;
+
+	for (const step of steps) {
+		parent = asRecord(parent)[step];
+	}
+
+	if (property === undefined || typeof parent !== "object" || parent === null) {
+		return;
+	}
+
+	(parent as Record<string, unknown>)[property] = value;
+}
