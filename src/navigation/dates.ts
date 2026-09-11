@@ -40,6 +40,22 @@ export function monthOf(date: string): string {
 }
 
 /**
+ * Every day of the month, from the first to the last. A month that names no
+ * month there is — the thirteenth of a year — has no days at all.
+ */
+export function daysOfMonth(yearMonth: string): string[] {
+	const day = utcDay(`${yearMonth}-01`);
+	const days: string[] = [];
+
+	while (formatMonth(day) === yearMonth) {
+		days.push(formatDay(day));
+		day.setUTCDate(day.getUTCDate() + 1);
+	}
+
+	return days;
+}
+
+/**
  * The month a number of months away from this one. Months are counted from
  * their first day, so no shift ever lands on a day the month does not have.
  */

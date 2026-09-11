@@ -7,8 +7,15 @@ import {
 	updateAllDailyNotes,
 	updateDailyNote,
 } from "./daily-notes/metrics";
-import { asDailyNote, createDailyNotesHost, logFailures } from "./daily-notes/vault-host";
+import {
+	asDailyNote,
+	createDailyNotesHost,
+	dailyNotesFolder,
+	logFailures,
+} from "./daily-notes/vault-host";
 import { createNavigationRenderer, NAVIGATION_BLOCK } from "./navigation/block";
+import { createMonthDays, describeMonthDaysRun } from "./monthly-notes/days";
+import { createMonthDaysHost, monthlyNoteMonth } from "./monthly-notes/vault-host";
 import { createNutritionMetric } from "./nutrition/metric";
 import type { MyDailiesSettings } from "./settings/settings";
 import { readSettings } from "./settings/settings";
@@ -49,6 +56,26 @@ export default class MyDailiesPlugin extends Plugin {
 			name: "Recalculate properties of all daily notes",
 			callback: () => {
 				void this.updateAllDailyNotes();
+			},
+		});
+
+		// The same goes for this one, the other way round: it is only offered
+		// for a note that stands for a month.
+		this.addCommand({
+			id: "create-daily-notes-of-month",
+			name: "Create daily notes for the current monthly note",
+			checkCallback: (checking) => {
+				const month = this.activeMonthlyNote();
+
+				if (month === null) {
+					return false;
+				}
+
+				if (!checking) {
+					void this.createDaysOfMonth(month);
+				}
+
+				return true;
 			},
 		});
 
@@ -100,6 +127,33 @@ export default class MyDailiesPlugin extends Plugin {
 		}
 
 		return asDailyNote(this.app, view.file, this.settings);
+	}
+
+	/**
+	 * The month the note in front of the user stands for, but only when it is a
+	 * monthly note: named after a month, and where the monthly notes are kept.
+	 */
+	private activeMonthlyNote(): string | null {
+		const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+
+		if (view === null || view.file === null) {
+			return null;
+		}
+
+		return monthlyNoteMonth(view.file, this.settings);
+	}
+
+	/** Gives every day of the month a daily note of its own, empty. */
+	private async createDaysOfMonth(month: string): Promise<void> {
+		const summary = await createMonthDays(
+			createMonthDaysHost(this.app),
+			month,
+			dailyNotesFolder(this.app, this.settings),
+		);
+
+		logFailures(summary.failures);
+
+		new Notice(describeMonthDaysRun(summary), SUMMARY_NOTICE_DURATION);
 	}
 
 	/** Works out the properties of one daily note and reports the result. */

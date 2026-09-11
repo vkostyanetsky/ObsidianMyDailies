@@ -11,6 +11,7 @@
  * commands or once when the vault has been read in.
  */
 
+import { describeError } from "../log";
 import type { FrontmatterValue } from "../markdown/frontmatter";
 import { setFrontmatterValues } from "../markdown/frontmatter";
 
@@ -81,10 +82,6 @@ export interface DailyNotesRunSummary {
 	written: number;
 	/** The ones that could not be written, by path and reason. */
 	failures: { note: string; message: string }[];
-}
-
-function describeError(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
 }
 
 /** A value as it ends up in the note, which is also how it is compared. */

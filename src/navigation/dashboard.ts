@@ -32,7 +32,7 @@ export interface DateWording {
 }
 
 /** Joins a folder and a name, tolerating an empty folder. */
-function notePath(folder: string, name: string): string {
+export function notePath(folder: string, name: string): string {
 	return folder === "" ? name : `${folder}/${name}`;
 }
 
@@ -62,6 +62,36 @@ export function monthlyNoteName(
 	return wanted.replace(/\{([^{}]*)\}/g, (match, format: string) =>
 		format === "" ? match : wording.month(yearMonth, format),
 	);
+}
+
+/** Literal text of a template, as a Moment format writes it out unchanged. */
+function quoteForFormat(literal: string): string {
+	return literal === "" ? "" : `[${literal}]`;
+}
+
+/**
+ * The Moment format the name of a monthly note reads as: the other way round
+ * from `monthlyNoteName`, with everything outside the braces quoted as the
+ * literal text it is. `Month {YYYY-MM}` comes out as `[Month ]YYYY-MM`, which
+ * reads `Month 2026-08` back as August 2026.
+ *
+ * A template whose literal text carries a square bracket cannot be written as
+ * a format at all; the name of such a note simply does not read as a month,
+ * which is the same as not being a monthly note.
+ */
+export function monthlyNoteFormat(template: string): string {
+	const wanted = template.trim() === "" ? DEFAULT_MONTHLY_NOTE_NAME : template.trim();
+
+	return wanted
+		.split(/(\{[^{}]*\})/)
+		.map((part) => {
+			const braces = /^\{([^{}]*)\}$/.exec(part);
+
+			// Empty braces stand for themselves rather than for a format, just
+			// as `monthlyNoteName` writes them out.
+			return braces !== null && braces[1] !== "" ? braces[1] : quoteForFormat(part);
+		})
+		.join("");
 }
 
 /** Every line of the content of the block, as a line of the callout. */

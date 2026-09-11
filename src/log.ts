@@ -16,3 +16,8 @@ export function log(message: string): void {
 export function logProblem(message: string): void {
 	console.warn(`${PREFIX} ${message}`);
 }
+
+/** The reason something went wrong, as a line a notice or the log can carry. */
+export function describeError(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
+}

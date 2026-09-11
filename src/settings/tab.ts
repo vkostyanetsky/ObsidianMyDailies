@@ -1,4 +1,9 @@
-import type { App, SettingDefinitionItem } from "obsidian";
+import type {
+	App,
+	SettingDefinitionGroup,
+	SettingDefinitionItem,
+	SettingGroupItem,
+} from "obsidian";
 import { PluginSettingTab } from "obsidian";
 
 import type MyDailiesPlugin from "../main";
@@ -30,8 +35,11 @@ type SettingKey =
 	| "navigation.monthlyNotesFolder"
 	| "navigation.monthlyNoteName";
 
-/** One row of the tab, as Obsidian renders it from version 1.13 on. */
-type SettingItem = SettingDefinitionItem<SettingKey>;
+/** One row of a section, as Obsidian renders it from version 1.13 on. */
+type SettingRow = SettingGroupItem<SettingKey>;
+
+/** One section of the tab: a heading of its own with the rows underneath it. */
+type SettingSection = SettingDefinitionGroup<SettingKey>;
 
 /** How each nutrient is named in the settings. */
 const NUTRIENT_NAMES: Record<Nutrient, string> = {
@@ -42,8 +50,8 @@ const NUTRIENT_NAMES: Record<Nutrient, string> = {
 	water: "Water",
 };
 
-/** What a switch of a metric says under its name. */
-const METRIC_SWITCH_DESCRIPTION = "Whether this is worked out for a daily note at all.";
+/** What a row that names a property of the daily note says under its name. */
+const PROPERTY_DESCRIPTION = "Property of the daily note the total is written to.";
 
 /** The setting a nutrient is written to, by nutrient. */
 function nutrientKey(nutrient: Nutrient): SettingKey {
@@ -63,22 +71,22 @@ const FALLBACKS: ReadonlyMap<string, string> = new Map<SettingKey, string>([
 	]),
 ]);
 
-/** A heading, with what the settings underneath it are for. */
-function heading(name: string, description: string): SettingItem {
-	return { name, desc: description };
+/** A section of the tab, set apart by a heading Obsidian renders itself. */
+function section(name: string, rows: SettingRow[]): SettingSection {
+	return { type: "group", heading: name, items: rows };
 }
 
-/** The switch a metric is turned on and off by. */
-function metricSwitch(name: string, key: SettingKey): SettingItem {
+/** The switch a metric is turned on and off by, with what it does under it. */
+function metricSwitch(name: string, key: SettingKey, description: string): SettingRow {
 	return {
 		name,
-		desc: METRIC_SWITCH_DESCRIPTION,
+		desc: description,
 		control: { type: "toggle", key },
 	};
 }
 
 /** One folder of the vault, picked by hand or from the suggestions. */
-function folder(name: string, description: string, key: SettingKey): SettingItem {
+function folder(name: string, description: string, key: SettingKey): SettingRow {
 	return {
 		name,
 		desc: description,
@@ -87,12 +95,7 @@ function folder(name: string, description: string, key: SettingKey): SettingItem
 }
 
 /** A line of text that falls back to a default when it is left empty. */
-function text(
-	name: string,
-	key: SettingKey,
-	fallback: string,
-	description?: string,
-): SettingItem {
+function text(name: string, key: SettingKey, fallback: string, description?: string): SettingRow {
 	return {
 		name,
 		desc: description,
@@ -100,84 +103,15 @@ function text(
 	};
 }
 
-/** What every metric of a daily note shares: where they are, and when. */
-function dailyNotesSettings(): SettingItem[] {
-	return [
-		heading(
-			"Daily notes",
-			"Where the notes that stand for a day are kept, and when the metrics below " +
-				"are worked out for them. A note is only ever written when one of its " +
-				"values would come out different from what it already says.",
-		),
+/** What everything below stands on: where the notes are, and when they are read. */
+function generalSection(): SettingSection {
+	return section("General", [
 		folder(
 			"Daily notes folder",
-			"Left empty, the folder of the core Daily notes plugin is used. Only the notes " +
-				"named after a day, such as 2026-08-28, are ever written to.",
+			"Folder the notes that stand for a day are kept in. Left empty, the folder of " +
+				"the core Daily notes plugin is used. Only the notes named after a day, " +
+				"such as 2026-08-28, are ever written to.",
 			"dailyNotes.folder",
-		),
-		{
-			name: "Recalculate when the vault is opened",
-			desc:
-				"Go through every daily note once, right after the vault has been read in. " +
-				"Nothing is watched afterwards; to work the values out at any other " +
-				"moment, run one of the two commands.",
-			// Switching this on never starts a run of its own: every daily note is
-			// worked out when the vault is opened the next time, or when the
-			// command is run.
-			control: { type: "toggle", key: "dailyNotes.autoUpdate" },
-		},
-	];
-}
-
-/** The nutrition metric: its records folder and its properties. */
-function nutritionSettings(): SettingItem[] {
-	return [
-		heading(
-			"Nutrition",
-			"Adds up what the eating records of a day state and writes the totals into " +
-				"the daily note of that day.",
-		),
-		metricSwitch("Count nutrition", "nutrition.enabled"),
-		folder(
-			"Nutrition records folder",
-			"Folder the eating records are kept in, subfolders included. Every note in it " +
-				"that carries a day, a product link and an amount is counted.",
-			"nutrition.recordsFolder",
-		),
-		...NUTRIENTS.map((nutrient) =>
-			text(
-				NUTRIENT_NAMES[nutrient],
-				nutrientKey(nutrient),
-				DEFAULT_NUTRITION_PROPERTIES[nutrient],
-			),
-		),
-	];
-}
-
-/** The open tasks metric: a single property to count into. */
-function tasksSettings(): SettingItem[] {
-	return [
-		heading(
-			"Tasks",
-			"Counts the tasks of a daily note that are still open — the lines starting " +
-				"with `- [ ] ` — and writes the number into the note itself.",
-		),
-		metricSwitch("Count open tasks", "openTasks.enabled"),
-		text("Open tasks", "openTasks.property", DEFAULT_OPEN_TASKS_PROPERTY),
-	];
-}
-
-/** The navigation block: where the notes it links to are, and how named. */
-function navigationSettings(): SettingItem[] {
-	return [
-		heading(
-			"Navigation",
-			`A daily note carrying a \`${NAVIGATION_BLOCK}\` code block shows the day ` +
-				"before it and the day after it, together with the month it belongs to " +
-				"and the months on either side of that one. The days are looked for in " +
-				"the daily notes folder above, the months in the folder below. Whatever " +
-				"is written inside the block is shown underneath, and the note itself is " +
-				"never written to.",
 		),
 		folder(
 			"Monthly notes folder",
@@ -189,11 +123,71 @@ function navigationSettings(): SettingItem[] {
 			"Monthly note name",
 			"navigation.monthlyNoteName",
 			DEFAULT_MONTHLY_NOTE_NAME,
-			"How a monthly note is named. What stands in curly braces is the month itself, " +
-				"written the way Moment.js writes a date: `Month {YYYY-MM}` names the note " +
-				"`Month 2026-08`, and `{MMMM YYYY}` names it `August 2026`.",
+			"How a monthly note is named, which is how the `" +
+				NAVIGATION_BLOCK +
+				"` block of a daily note finds the month to link to. What stands in curly " +
+				"braces is the month itself, written the way Moment.js writes a date: " +
+				"`Month {YYYY-MM}` names the note `Month 2026-08`, and `{MMMM YYYY}` " +
+				"names it `August 2026`.",
 		),
-	];
+		{
+			name: "Recalculate when the vault is opened",
+			desc:
+				"Go through every daily note once, right after the vault has been read in, " +
+				"and work out the metrics of the sections below for it. Nothing is watched " +
+				"afterwards; to work the values out at any other moment, run one of the two " +
+				"commands. A note is only ever written when one of its values would come " +
+				"out different from what it already says.",
+			// Switching this on never starts a run of its own: every daily note is
+			// worked out when the vault is opened the next time, or when the
+			// command is run.
+			control: { type: "toggle", key: "dailyNotes.autoUpdate" },
+		},
+	]);
+}
+
+/** The nutrition metric: its records folder and its properties. */
+function nutritionSection(): SettingSection {
+	return section("Nutrition", [
+		metricSwitch(
+			"Count nutrition",
+			"nutrition.enabled",
+			"Adds up what the eating records of a day state and writes the totals into " +
+				"the daily note of that day.",
+		),
+		folder(
+			"Nutrition records folder",
+			"Folder the eating records are kept in, subfolders included. Every note in it " +
+				"that carries a day, a product link and an amount is counted.",
+			"nutrition.recordsFolder",
+		),
+		...NUTRIENTS.map((nutrient) =>
+			text(
+				NUTRIENT_NAMES[nutrient],
+				nutrientKey(nutrient),
+				DEFAULT_NUTRITION_PROPERTIES[nutrient],
+				PROPERTY_DESCRIPTION,
+			),
+		),
+	]);
+}
+
+/** The open tasks metric: a single property to count into. */
+function tasksSection(): SettingSection {
+	return section("Tasks", [
+		metricSwitch(
+			"Count open tasks",
+			"openTasks.enabled",
+			"Counts the tasks of a daily note that are still open — the lines starting " +
+				"with `- [ ] ` — and writes the number into the note itself.",
+		),
+		text(
+			"Open tasks",
+			"openTasks.property",
+			DEFAULT_OPEN_TASKS_PROPERTY,
+			PROPERTY_DESCRIPTION,
+		),
+	]);
 }
 
 /**
@@ -210,13 +204,8 @@ export class MyDailiesSettingTab extends PluginSettingTab {
 		this.plugin = plugin;
 	}
 
-	getSettingDefinitions(): SettingItem[] {
-		return [
-			...dailyNotesSettings(),
-			...nutritionSettings(),
-			...tasksSettings(),
-			...navigationSettings(),
-		];
+	getSettingDefinitions(): SettingDefinitionItem<SettingKey>[] {
+		return [generalSection(), nutritionSection(), tasksSection()];
 	}
 
 	getControlValue(key: string): unknown {
