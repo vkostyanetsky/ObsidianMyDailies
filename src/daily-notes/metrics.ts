@@ -23,8 +23,20 @@ export interface DailyNote {
 	date: string;
 }
 
-/** What a metric contributes to a note: property name to value. */
-export type MetricValues = Record<string, number | string>;
+/**
+ * What a metric contributes to a note: property name to value. A `null` value
+ * is a property the metric owns but has nothing to say for, and it is written
+ * as an empty one rather than as a number.
+ */
+export type MetricValues = Record<string, number | string | null>;
+
+/**
+ * A counted number as a metric value. Nothing counted is nothing to say, and
+ * a property that would read `0` is left empty instead.
+ */
+export function countedValue(value: number): number | null {
+	return value === 0 ? null : value;
+}
 
 /** What one metric came to for one note. */
 export interface MetricResult {
@@ -84,9 +96,12 @@ export interface DailyNotesRunSummary {
 	failures: { note: string; message: string }[];
 }
 
-/** A value as it ends up in the note, which is also how it is compared. */
-function written(value: number | string): string {
-	return String(value);
+/**
+ * A value as it ends up in the note, which is also how it is compared. Nothing
+ * to say is written as a blank, which leaves the property there and empty.
+ */
+function written(value: number | string | null): string {
+	return value === null ? "" : String(value);
 }
 
 /**

@@ -20,9 +20,15 @@ export function frontmatterOf(app: App, file: TFile): Record<string, unknown> {
 
 /**
  * A stored property as it would have to be written, or `null` when the note
- * does not carry it in a form a metric could have written.
+ * does not carry it in a form a metric could have written. A property that is
+ * there but holds nothing is parsed as `null` by Obsidian and reads back as
+ * the blank a metric writes when it has nothing to say.
  */
 function storedValue(value: unknown): string | null {
+	if (value === null) {
+		return "";
+	}
+
 	if (typeof value === "number") {
 		return Number.isFinite(value) ? String(value) : null;
 	}

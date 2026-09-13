@@ -11,6 +11,7 @@ import { TFile as ObsidianFile } from "obsidian";
 
 import { frontmatterOf } from "../daily-notes/vault-host";
 import type { DayMetric, DayMetricSource, MetricValues } from "../daily-notes/metrics";
+import { countedValue } from "../daily-notes/metrics";
 import { log } from "../log";
 import { isInFolder, normalizeFolder } from "../settings/settings";
 import type { MyDailiesSettings } from "../settings/settings";
@@ -91,7 +92,7 @@ function openMetric(app: App, settings: MyDailiesSettings, recordsFolder: string
 			const values: MetricValues = {};
 
 			for (const nutrient of NUTRIENTS) {
-				values[settings.nutrition.properties[nutrient]] = day.totals[nutrient];
+				values[settings.nutrition.properties[nutrient]] = countedValue(day.totals[nutrient]);
 			}
 
 			const counted = `${day.counted} ${day.counted === 1 ? "record" : "records"}`;

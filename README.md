@@ -46,6 +46,17 @@ tasks: 3
 
 Only those lines are touched. A property that is already there keeps its place, one that is missing is appended to the block, and everything else — order, spacing, quoting, the properties the plugin knows nothing about — is left byte for byte as it was.
 
+**A number that comes out as zero is written as nothing at all.** A day nothing was eaten on and a note with no open task left get the property, empty:
+
+```yaml
+---
+calories:
+tasks:
+---
+```
+
+A zero would read like a day that was counted and came to nothing, which is rarely what it means, and an empty property is what the rest of the vault treats as no value.
+
 **A note is only written when a value would come out different from what it already says.** A run over a vault of a thousand days that changed nothing writes nothing, and leaves a thousand modification dates alone. It is also why the metrics are all asked before anything is written: two metrics that each wrote for themselves would touch the same note twice.
 
 For the same reason two metrics must not be pointed at the same property — they would overwrite each other on every run, and the note would never settle. A run that finds such a clash writes nothing at all and names the property.
@@ -94,7 +105,7 @@ round(product.calories / product.unit_size * quantity)
 
 Rounding per record and rounding the sum are not the same thing: two records of 12.5 kcal each come out as 26, not 25. The order above is the one to keep.
 
-A record whose product links to no note is skipped and reported, as is one without an amount; the same goes for a nutrient a product does not state. A day nothing was eaten on comes out as zeroes.
+A record whose product links to no note is skipped and reported, as is one without an amount; the same goes for a nutrient a product does not state. A day nothing was eaten on leaves the properties empty.
 
 ## ✅ Open tasks
 
@@ -107,7 +118,7 @@ Counts the tasks of the daily note itself that are still to be done — the line
     - [ ] Ask about the event ids       nested under a task, not counted
 ```
 
-Only the tasks flush left are counted, so the subtasks of a task do not inflate the number.
+Only the tasks flush left are counted, so the subtasks of a task do not inflate the number. A note with nothing left to do leaves the property empty rather than saying `0`.
 
 The count comes from the index Obsidian keeps rather than from the text of the note. A run therefore reads no file at all, and a `- [ ] ` inside a fenced code block is not mistaken for a task, because Obsidian does not index it as one either.
 

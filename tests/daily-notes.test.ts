@@ -9,6 +9,7 @@ import type {
 } from "../src/daily-notes/metrics";
 import {
 	clashingProperties,
+	countedValue,
 	describeDailyNoteOutcome,
 	describeDailyNotesRun,
 	updateAllDailyNotes,
@@ -38,9 +39,11 @@ function host(notes: Record<string, string>): DailyNotesHost & { written: Record
 			const stored: Record<string, string | null> = {};
 
 			for (const property of properties) {
-				const match = new RegExp(`^${property}: (.*)$`, "m").exec(source);
+				// A property that is there but holds nothing reads as a blank,
+				// the way Obsidian hands an empty one over.
+				const match = new RegExp(`^${property}:(?: (.*))?$`, "m").exec(source);
 
-				stored[property] = match === null ? null : match[1];
+				stored[property] = match === null ? null : (match[1] ?? "");
 			}
 
 			return stored;
@@ -93,6 +96,17 @@ describe("isInDailyNotesFolder", () => {
 	it("takes the whole vault when no folder is named", () => {
 		expect(isInDailyNotesFolder("2026-08-28.md", "")).toBe(true);
 		expect(isInDailyNotesFolder("Notes/2026-08-28.md", " ")).toBe(true);
+	});
+});
+
+describe("countedValue", () => {
+	it("keeps a number there is something to say about", () => {
+		expect(countedValue(1387)).toBe(1387);
+		expect(countedValue(-2)).toBe(-2);
+	});
+
+	it("turns nothing counted into nothing to say", () => {
+		expect(countedValue(0)).toBeNull();
 	});
 });
 
@@ -165,6 +179,30 @@ describe("updateDailyNote", () => {
 		expect(
 			(await updateDailyNote(vault, [metric("tasks", { tasks: 0 })], NOTE)).kind,
 		).toBe("written");
+	});
+
+	it("leaves a property empty when the metric has nothing to say", async () => {
+		const vault = host({ "2026-08-27": "---\ncalories: 1387\ntasks: 3\n---\n" });
+		const outcome = await updateDailyNote(
+			vault,
+			[metric("nutrition", { calories: null }), metric("tasks", { tasks: null })],
+			NOTE,
+		);
+
+		expect(outcome.kind).toBe("written");
+		expect(vault.written["2026-08-27"]).toBe("---\ncalories:\ntasks:\n---\n");
+	});
+
+	it("writes nothing when the property is empty already", async () => {
+		const vault = host({ "2026-08-27": "---\ncalories:\ntasks:\n---\n" });
+		const outcome = await updateDailyNote(
+			vault,
+			[metric("nutrition", { calories: null }), metric("tasks", { tasks: null })],
+			NOTE,
+		);
+
+		expect(outcome.kind).toBe("unchanged");
+		expect(vault.written).toEqual({});
 	});
 
 	it("refuses to write when two metrics claim the same property", async () => {

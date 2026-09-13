@@ -11,6 +11,7 @@
 import type { App } from "obsidian";
 
 import type { DayMetric, DayMetricSource } from "../daily-notes/metrics";
+import { countedValue } from "../daily-notes/metrics";
 import type { MyDailiesSettings } from "../settings/settings";
 import type { TaskItem } from "./open-tasks";
 import { countOpenTasks } from "./open-tasks";
@@ -37,7 +38,7 @@ function openMetric(app: App, property: string): DayMetric {
 			const open = countOpenTasks(taskItems(app, note.path));
 
 			return {
-				values: { [property]: open },
+				values: { [property]: countedValue(open) },
 				summary: `${open} open ${open === 1 ? "task" : "tasks"}`,
 			};
 		},
