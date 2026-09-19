@@ -1,6 +1,7 @@
 /*
- * The navigation a daily note carries: the day before it and the day after it,
- * the month it belongs to and the months on either side of that one.
+ * The navigation a note carries: for a daily note, the day before it and the
+ * day after it, the month it belongs to and the months on either side of that
+ * one; for a monthly note, the months on either side of its own.
  *
  * Nothing here knows about the vault or about Moment. The block is written out
  * as Markdown and handed back, which is what makes it something a test can look
@@ -118,6 +119,15 @@ function dayLink(date: string, places: NavigationPlaces): string {
 	return noteLink(notePath(places.dailyNotesFolder, date), date);
 }
 
+/** The months around a month, and the month itself, each one a link. */
+function monthsLine(yearMonth: string, places: NavigationPlaces, wording: DateWording): string {
+	return (
+		`${monthLink(shiftMonth(yearMonth, -1), places, wording)} ⬅️ ` +
+		`${monthLink(yearMonth, places, wording)} ➡️ ` +
+		`${monthLink(shiftMonth(yearMonth, 1), places, wording)}`
+	);
+}
+
 /**
  * The navigation of one daily note, as the Markdown it is rendered from: the
  * weekday it fell on and the days on either side of it, in a callout; the
@@ -127,7 +137,7 @@ function dayLink(date: string, places: NavigationPlaces): string {
  * The lines are laid out exactly as the Daily Note Navigator laid them out, so
  * that a note that carried the block before carries the same block now.
  */
-export function buildDashboard(
+export function buildDailyNoteNavigation(
 	date: string,
 	places: NavigationPlaces,
 	wording: DateWording,
@@ -139,13 +149,34 @@ export function buildDashboard(
 		`> 📅 ${dayLink(shiftDay(date, -1), places)} ← ${date} → ` +
 			`${dayLink(shiftDay(date, 1), places)}`,
 		"> ",
-		`${monthLink(shiftMonth(month, -1), places, wording)} ⬅️ ` +
-			`${monthLink(month, places, wording)} ➡️ ` +
-			`${monthLink(shiftMonth(month, 1), places, wording)}`,
+		monthsLine(month, places, wording),
 	];
 
 	if (source.trim() !== "") {
 		lines.push(">", ...quoteForCallout(source));
+	}
+
+	return lines.join("\n");
+}
+
+/**
+ * The navigation of one monthly note, as the Markdown it is rendered from: the
+ * month before it, the month itself and the month after it, on a line of their
+ * own; and whatever the block itself carries below that, as it was written.
+ *
+ * The months are named and linked exactly as a daily note names and links them,
+ * so that a month is the same link wherever it is pointed at from.
+ */
+export function buildMonthlyNoteNavigation(
+	yearMonth: string,
+	places: NavigationPlaces,
+	wording: DateWording,
+	source = "",
+): string {
+	const lines = [monthsLine(yearMonth, places, wording)];
+
+	if (source.trim() !== "") {
+		lines.push("", source.replace(/\r\n|\r/g, "\n").trim());
 	}
 
 	return lines.join("\n");

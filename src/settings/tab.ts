@@ -8,7 +8,8 @@ import { PluginSettingTab } from "obsidian";
 
 import type MyDailiesPlugin from "../main";
 import { DEFAULT_MONTHLY_NOTE_NAME } from "../navigation/dashboard";
-import { NAVIGATION_BLOCK } from "../navigation/block";
+import { DAILY_NOTE_NAVIGATION_BLOCK } from "../navigation/daily-note-block";
+import { MONTHLY_NOTE_NAVIGATION_BLOCK } from "../navigation/monthly-note-block";
 import { NUTRIENTS } from "../nutrition/totals";
 import type { Nutrient } from "../nutrition/totals";
 import {
@@ -124,8 +125,10 @@ function generalSection(): SettingSection {
 			"navigation.monthlyNoteName",
 			DEFAULT_MONTHLY_NOTE_NAME,
 			"How a monthly note is named, which is how the `" +
-				NAVIGATION_BLOCK +
-				"` block of a daily note finds the month to link to. What stands in curly " +
+				DAILY_NOTE_NAVIGATION_BLOCK +
+				"` block finds the month to link to, and how the `" +
+				MONTHLY_NOTE_NAVIGATION_BLOCK +
+				"` block reads the month a note stands for. What stands in curly " +
 				"braces is the month itself, written the way Moment.js writes a date: " +
 				"`Month {YYYY-MM}` names the note `Month 2026-08`, and `{MMMM YYYY}` " +
 				"names it `August 2026`.",

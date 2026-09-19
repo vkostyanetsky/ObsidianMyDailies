@@ -13,7 +13,14 @@ import {
 	dailyNotesFolder,
 	logFailures,
 } from "./daily-notes/vault-host";
-import { createNavigationRenderer, NAVIGATION_BLOCK } from "./navigation/block";
+import {
+	createDailyNoteNavigationRenderer,
+	DAILY_NOTE_NAVIGATION_BLOCK,
+} from "./navigation/daily-note-block";
+import {
+	createMonthlyNoteNavigationRenderer,
+	MONTHLY_NOTE_NAVIGATION_BLOCK,
+} from "./navigation/monthly-note-block";
 import { createMonthDays, describeMonthDaysRun } from "./monthly-notes/days";
 import { createMonthDaysHost, monthlyNoteMonth } from "./monthly-notes/vault-host";
 import { createNutritionMetric } from "./nutrition/metric";
@@ -79,11 +86,16 @@ export default class MyDailiesPlugin extends Plugin {
 			},
 		});
 
-		// The navigation of a daily note is rendered wherever the block is
-		// written, and nowhere else.
+		// The navigation of a note is rendered wherever its block is written, and
+		// nowhere else: one block for a day, one for a month.
 		this.registerMarkdownCodeBlockProcessor(
-			NAVIGATION_BLOCK,
-			createNavigationRenderer(this.app, () => this.settings),
+			DAILY_NOTE_NAVIGATION_BLOCK,
+			createDailyNoteNavigationRenderer(this.app, () => this.settings),
+		);
+
+		this.registerMarkdownCodeBlockProcessor(
+			MONTHLY_NOTE_NAVIGATION_BLOCK,
+			createMonthlyNoteNavigationRenderer(this.app, () => this.settings),
 		);
 
 		this.addSettingTab(new MyDailiesSettingTab(this.app, this));

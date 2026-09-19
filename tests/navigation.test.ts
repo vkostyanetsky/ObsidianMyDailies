@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import type { DateWording, NavigationPlaces } from "../src/navigation/dashboard";
 import {
-	buildDashboard,
+	buildDailyNoteNavigation,
+	buildMonthlyNoteNavigation,
 	monthlyNoteName,
 	DEFAULT_MONTHLY_NOTE_NAME,
 } from "../src/navigation/dashboard";
@@ -129,7 +130,7 @@ describe("the name of a monthly note", () => {
 
 describe("the navigation of a daily note", () => {
 	it("links the days around it and the months around its own", () => {
-		expect(buildDashboard("2026-08-29", places, wording)).toBe(
+		expect(buildDailyNoteNavigation("2026-08-29", places, wording)).toBe(
 			[
 				"> [!seealso] Saturday",
 				"> 📅 [[Days/2026-08-28|2026-08-28]] ← 2026-08-29 → [[Days/2026-08-30|2026-08-30]]",
@@ -147,14 +148,21 @@ describe("the navigation of a daily note", () => {
 			monthlyNoteName: DEFAULT_MONTHLY_NOTE_NAME,
 		};
 
-		expect(buildDashboard("2026-08-29", root, wording)).toContain(
+		expect(buildDailyNoteNavigation("2026-08-29", root, wording)).toContain(
 			"[[2026-08-28|2026-08-28]] ← 2026-08-29 → [[2026-08-30|2026-08-30]]",
 		);
-		expect(buildDashboard("2026-08-29", root, wording)).toContain("[[Month 2026-08|AUG]]");
+		expect(buildDailyNoteNavigation("2026-08-29", root, wording)).toContain(
+			"[[Month 2026-08|AUG]]",
+		);
 	});
 
 	it("writes what the block itself carries underneath, quoted", () => {
-		const dashboard = buildDashboard("2026-08-29", places, wording, "Woke up late.\n\n- [ ] Run");
+		const dashboard = buildDailyNoteNavigation(
+			"2026-08-29",
+			places,
+			wording,
+			"Woke up late.\n\n- [ ] Run",
+		);
 
 		expect(dashboard.split("\n").slice(4)).toEqual([
 			">",
@@ -165,7 +173,55 @@ describe("the navigation of a daily note", () => {
 	});
 
 	it("says nothing more when the block is empty", () => {
-		expect(buildDashboard("2026-08-29", places, wording, "  \n ").split("\n")).toHaveLength(4);
+		expect(
+			buildDailyNoteNavigation("2026-08-29", places, wording, "  \n ").split("\n"),
+		).toHaveLength(4);
+	});
+});
+
+describe("the navigation of a monthly note", () => {
+	it("links the month itself and the months on either side", () => {
+		expect(buildMonthlyNoteNavigation("2026-09", places, wording)).toBe(
+			"[[Months/Month 2026-08|AUG]] ⬅️ [[Months/Month 2026-09|SEP]] ➡️ " +
+				"[[Months/Month 2026-10|OCT]]",
+		);
+	});
+
+	it("steps over the turn of a year", () => {
+		expect(buildMonthlyNoteNavigation("2026-12", places, wording)).toBe(
+			"[[Months/Month 2026-11|NOV]] ⬅️ [[Months/Month 2026-12|DEC]] ➡️ " +
+				"[[Months/Month 2027-01|JAN]]",
+		);
+	});
+
+	it("names the months exactly as a daily note names them", () => {
+		expect(buildDailyNoteNavigation("2026-09-15", places, wording)).toContain(
+			buildMonthlyNoteNavigation("2026-09", places, wording),
+		);
+	});
+
+	it("links into the vault root when no folder is named", () => {
+		const root: NavigationPlaces = {
+			dailyNotesFolder: "",
+			monthlyNotesFolder: "",
+			monthlyNoteName: DEFAULT_MONTHLY_NOTE_NAME,
+		};
+
+		expect(buildMonthlyNoteNavigation("2026-09", root, wording)).toContain(
+			"[[Month 2026-09|SEP]]",
+		);
+	});
+
+	it("writes what the block itself carries underneath", () => {
+		const navigation = buildMonthlyNoteNavigation("2026-09", places, wording, "Half a year in.");
+
+		expect(navigation.split("\n").slice(1)).toEqual(["", "Half a year in."]);
+	});
+
+	it("says nothing more when the block is empty", () => {
+		expect(
+			buildMonthlyNoteNavigation("2026-09", places, wording, "  \n ").split("\n"),
+		).toHaveLength(1);
 	});
 });
 

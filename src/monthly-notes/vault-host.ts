@@ -23,14 +23,24 @@ const MONTH_FORMAT = "YYYY-MM";
  * Whether the note sits where the monthly notes are kept. A folder that names
  * nothing is the vault itself, as it is for the daily notes.
  */
-function isInMonthlyNotesFolder(path: string, folder: string): boolean {
+export function isInMonthlyNotesFolder(path: string, folder: string): boolean {
 	return normalizeFolder(folder) === "" || isInFolder(path, folder);
 }
 
 /**
- * The month the note stands for, or `null` when it does not stand for one. The
- * name is read strictly, so a note named anything else than a month — however
- * close it comes — is not a monthly note.
+ * The month the name of a note stands for, or `null` when it stands for none.
+ * The name is read strictly against the template the settings carry, so a note
+ * named anything else than a month — however close it comes — names no month.
+ */
+export function monthOfNoteName(basename: string, template: string): string | null {
+	const read = moment(basename, monthlyNoteFormat(template), true);
+
+	return read.isValid() ? read.format(MONTH_FORMAT) : null;
+}
+
+/**
+ * The month the note stands for, or `null` when it does not stand for one: a
+ * note that is named after a month and sits where the monthly notes are kept.
  */
 export function monthlyNoteMonth(file: TFile, settings: MyDailiesSettings): string | null {
 	if (file.extension !== "md") {
@@ -41,13 +51,7 @@ export function monthlyNoteMonth(file: TFile, settings: MyDailiesSettings): stri
 		return null;
 	}
 
-	const read = moment(
-		file.basename,
-		monthlyNoteFormat(settings.navigation.monthlyNoteName),
-		true,
-	);
-
-	return read.isValid() ? read.format(MONTH_FORMAT) : null;
+	return monthOfNoteName(file.basename, settings.navigation.monthlyNoteName);
 }
 
 /** Creates the folder of a note, and whatever folder that one sits in. */

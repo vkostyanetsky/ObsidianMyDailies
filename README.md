@@ -12,7 +12,7 @@ Three features, three commands, and one run the plugin can make by itself once t
 | --- | --- |
 | [Daily notes](#-daily-notes) | **Recalculate properties of current daily note**, **Recalculate properties of all daily notes** |
 | [Monthly notes](#-monthly-notes) | **Create daily notes for the current monthly note** |
-| [Navigation](#-navigation) | A `my-dailies-navigation` block written into a daily note |
+| [Navigation](#-navigation) | A `my-dailies-daily-note-navigation` block written into a daily note, a `my-dailies-monthly-note-navigation` block written into a monthly one |
 
 ## 📅 Daily notes
 
@@ -137,10 +137,12 @@ Gives every day of that month a daily note of its own, in the **daily notes fold
 
 ## 🧭 Navigation
 
-A daily note carrying a code block of its own shows where it sits among the other days:
+A note carrying a code block of its own shows where it sits among the notes around it: one block for a day, one for a month.
+
+### The navigation of a daily note
 
 ````text
-```my-dailies-navigation
+```my-dailies-daily-note-navigation
 ```
 ````
 
@@ -154,11 +156,30 @@ What comes out is the weekday the note stands for, the day before it and the day
 ```
 
 - The days are looked for in the **daily notes folder**, the same one the metrics use, and are named after the day itself, `2026-08-29`.
-- The months are looked for in the **monthly notes folder** and named after the **Monthly note name** setting: what stands in curly braces is the month, written the way Moment.js writes a date. `Month {YYYY-MM}` names the note `Month 2026-08`, `{MMMM YYYY}` names it `August 2026`.
+- Anything written inside the block is rendered below the navigation, as Markdown, quoted into the callout.
+- A note that does not stand for a day, or does not sit in the daily notes folder, shows a warning instead — the block only ever means something in a daily note.
+
+### The navigation of a monthly note
+
+````text
+```my-dailies-monthly-note-navigation
+```
+````
+
+What comes out is the month the note stands for, with the month before it and the month after it on either side:
+
+```text
+[[Months/Month 2026-08|AUG]] ⬅️ [[Months/Month 2026-09|SEP]] ➡️ [[Months/Month 2026-10|OCT]]
+```
+
+- Anything written inside the block is rendered below the line, as Markdown.
+- A note that does not stand for a month, or does not sit in the monthly notes folder, shows a warning instead — the block only ever means something in a monthly note.
+
+### Both of them
+
+- The months are looked for in the **monthly notes folder** and named after the **Monthly note name** setting: what stands in curly braces is the month, written the way Moment.js writes a date. `Month {YYYY-MM}` names the note `Month 2026-08`, `{MMMM YYYY}` names it `August 2026`. The same setting tells a monthly note which month it stands for.
 - The weekday and the short names of the months are written in the language Obsidian is set to.
 - **Nothing is created and nothing is written.** A day or a month the vault has no note for is still linked, as the empty link Obsidian offers to fill in.
-- Anything written inside the block is rendered below the navigation, as Markdown.
-- A note that does not stand for a day, or does not sit in the daily notes folder, shows a warning instead — the block only ever means something in a daily note.
 
 ## 🐞 Debugging output
 
@@ -170,7 +191,7 @@ Everything the plugin does to the vault is written to the developer console (`Ct
 | --- | --- | --- |
 | **General** | **Daily notes folder** | The folder the daily notes are kept in. Left empty, the folder of the core **Daily notes** plugin is used. |
 | **General** | **Monthly notes folder** | The folder the notes that stand for a month are kept in. Left empty, they are looked for in the vault root. |
-| **General** | **Monthly note name** | How a monthly note is named, which is how the navigation block finds the month to link to. The month itself stands in curly braces. Blank falls back to `Month {YYYY-MM}`. |
+| **General** | **Monthly note name** | How a monthly note is named, which is how the navigation blocks find the month to link to, and how a monthly note is read back as the month it stands for. The month itself stands in curly braces. Blank falls back to `Month {YYYY-MM}`. |
 | **General** | **Recalculate when the vault is opened** | Whether every daily note is worked out once at startup. Switching it on changes nothing right away — it takes effect the next time the vault is opened. To go through the notes now, run the command. |
 | **Nutrition** | **Count nutrition** | Whether what was eaten is counted for a daily note at all. |
 | **Nutrition** | **Nutrition records folder** | The folder the eating records are kept in, subfolders included. Without it nothing is summed up, and the commands report as much. |
@@ -182,9 +203,9 @@ Folders are matched without regard to case, and a folder holds everything below 
 
 ## 🙂 Usage
 
-Open a daily note and run **Recalculate properties of current daily note** from the command palette (`Ctrl/Cmd+P`) to write its numbers, or **Recalculate properties of all daily notes** to go through the whole vault. To carry the navigation as well, write a `my-dailies-navigation` block into the note — a template of the daily notes is the place for it.
+Open a daily note and run **Recalculate properties of current daily note** from the command palette (`Ctrl/Cmd+P`) to write its numbers, or **Recalculate properties of all daily notes** to go through the whole vault. To carry the navigation as well, write a `my-dailies-daily-note-navigation` block into the note — a template of the daily notes is the place for it.
 
-Open a monthly note and run **Create daily notes for the current monthly note** to give every day of that month an empty note, ready to be filled in.
+Open a monthly note and run **Create daily notes for the current monthly note** to give every day of that month an empty note, ready to be filled in. A `my-dailies-monthly-note-navigation` block written into that note points it at the months on either side.
 
 All of them work only when they are run, and no note is written unless one of its values would come out different from what it already says — or, for a day of the month, unless it has no note at all.
 
