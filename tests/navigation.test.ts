@@ -180,23 +180,33 @@ describe("the navigation of a daily note", () => {
 });
 
 describe("the navigation of a monthly note", () => {
-	it("links the month itself and the months on either side", () => {
+	it("names the month in the heading and links the months on either side", () => {
 		expect(buildMonthlyNoteNavigation("2026-09", places, wording)).toBe(
-			"[[Months/Month 2026-08|AUG]] ⬅️ [[Months/Month 2026-09|SEP]] ➡️ " +
-				"[[Months/Month 2026-10|OCT]]",
+			[
+				"> [!seealso] September 2026",
+				"> [[Months/Month 2026-08|AUG]] ⬅️ SEP ➡️ [[Months/Month 2026-10|OCT]]",
+			].join("\n"),
 		);
+	});
+
+	it("leaves the month of the note itself unlinked", () => {
+		const navigation = buildMonthlyNoteNavigation("2026-09", places, wording);
+
+		expect(navigation).not.toContain("[[Months/Month 2026-09");
 	});
 
 	it("steps over the turn of a year", () => {
-		expect(buildMonthlyNoteNavigation("2026-12", places, wording)).toBe(
-			"[[Months/Month 2026-11|NOV]] ⬅️ [[Months/Month 2026-12|DEC]] ➡️ " +
-				"[[Months/Month 2027-01|JAN]]",
+		expect(buildMonthlyNoteNavigation("2026-12", places, wording)).toContain(
+			"[[Months/Month 2026-11|NOV]] ⬅️ DEC ➡️ [[Months/Month 2027-01|JAN]]",
 		);
 	});
 
-	it("names the months exactly as a daily note names them", () => {
-		expect(buildDailyNoteNavigation("2026-09-15", places, wording)).toContain(
-			buildMonthlyNoteNavigation("2026-09", places, wording),
+	it("links the months around it exactly as a daily note links them", () => {
+		const daily = buildDailyNoteNavigation("2026-09-15", places, wording);
+
+		expect(daily).toContain("[[Months/Month 2026-08|AUG]]");
+		expect(buildMonthlyNoteNavigation("2026-09", places, wording)).toContain(
+			"[[Months/Month 2026-08|AUG]]",
 		);
 	});
 
@@ -208,20 +218,25 @@ describe("the navigation of a monthly note", () => {
 		};
 
 		expect(buildMonthlyNoteNavigation("2026-09", root, wording)).toContain(
-			"[[Month 2026-09|SEP]]",
+			"[[Month 2026-08|AUG]]",
 		);
 	});
 
-	it("writes what the block itself carries underneath", () => {
-		const navigation = buildMonthlyNoteNavigation("2026-09", places, wording, "Half a year in.");
+	it("writes what the block itself carries underneath, quoted", () => {
+		const navigation = buildMonthlyNoteNavigation(
+			"2026-09",
+			places,
+			wording,
+			"Half a year in.",
+		);
 
-		expect(navigation.split("\n").slice(1)).toEqual(["", "Half a year in."]);
+		expect(navigation.split("\n").slice(2)).toEqual([">", "> Half a year in."]);
 	});
 
 	it("says nothing more when the block is empty", () => {
 		expect(
 			buildMonthlyNoteNavigation("2026-09", places, wording, "  \n ").split("\n"),
-		).toHaveLength(1);
+		).toHaveLength(2);
 	});
 });
 

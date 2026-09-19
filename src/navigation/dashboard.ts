@@ -103,6 +103,11 @@ function quoteForCallout(source: string): string[] {
 		.map((line) => (line === "" ? ">" : `> ${line}`));
 }
 
+/** A month as the navigation names it: its short name, in capitals. */
+function monthLabel(yearMonth: string, wording: DateWording): string {
+	return wording.month(yearMonth, "MMM").toUpperCase();
+}
+
 /** The link to the monthly note of a month, labelled after the month. */
 function monthLink(yearMonth: string, places: NavigationPlaces, wording: DateWording): string {
 	return noteLink(
@@ -110,7 +115,7 @@ function monthLink(yearMonth: string, places: NavigationPlaces, wording: DateWor
 			places.monthlyNotesFolder,
 			monthlyNoteName(yearMonth, places.monthlyNoteName, wording),
 		),
-		wording.month(yearMonth, "MMM").toUpperCase(),
+		monthLabel(yearMonth, wording),
 	);
 }
 
@@ -119,11 +124,20 @@ function dayLink(date: string, places: NavigationPlaces): string {
 	return noteLink(notePath(places.dailyNotesFolder, date), date);
 }
 
-/** The months around a month, and the month itself, each one a link. */
-function monthsLine(yearMonth: string, places: NavigationPlaces, wording: DateWording): string {
+/**
+ * The months on either side of a month, each one a link, with the month itself
+ * written between them however the note it is written in has it: a daily note
+ * links to the month it belongs to, a monthly note only names its own.
+ */
+function monthsLine(
+	yearMonth: string,
+	places: NavigationPlaces,
+	wording: DateWording,
+	middle: string,
+): string {
 	return (
 		`${monthLink(shiftMonth(yearMonth, -1), places, wording)} ⬅️ ` +
-		`${monthLink(yearMonth, places, wording)} ➡️ ` +
+		`${middle} ➡️ ` +
 		`${monthLink(shiftMonth(yearMonth, 1), places, wording)}`
 	);
 }
@@ -149,7 +163,7 @@ export function buildDailyNoteNavigation(
 		`> 📅 ${dayLink(shiftDay(date, -1), places)} ← ${date} → ` +
 			`${dayLink(shiftDay(date, 1), places)}`,
 		"> ",
-		monthsLine(month, places, wording),
+		monthsLine(month, places, wording, monthLink(month, places, wording)),
 	];
 
 	if (source.trim() !== "") {
@@ -161,11 +175,14 @@ export function buildDailyNoteNavigation(
 
 /**
  * The navigation of one monthly note, as the Markdown it is rendered from: the
- * month before it, the month itself and the month after it, on a line of their
- * own; and whatever the block itself carries below that, as it was written.
+ * month it stands for as the heading of a callout, the month before it and the
+ * month after it on either side of its own name, and whatever the block itself
+ * carries under that, quoted.
  *
- * The months are named and linked exactly as a daily note names and links them,
- * so that a month is the same link wherever it is pointed at from.
+ * The month the note stands for is named rather than linked: the link would
+ * lead to the note the block is written in. The months around it are named and
+ * linked exactly as a daily note names and links them, so that a month is the
+ * same link wherever it is pointed at from.
  */
 export function buildMonthlyNoteNavigation(
 	yearMonth: string,
@@ -173,10 +190,13 @@ export function buildMonthlyNoteNavigation(
 	wording: DateWording,
 	source = "",
 ): string {
-	const lines = [monthsLine(yearMonth, places, wording)];
+	const lines = [
+		`> [!seealso] ${capitalize(wording.month(yearMonth, "MMMM YYYY"))}`,
+		`> ${monthsLine(yearMonth, places, wording, monthLabel(yearMonth, wording))}`,
+	];
 
 	if (source.trim() !== "") {
-		lines.push("", source.replace(/\r\n|\r/g, "\n").trim());
+		lines.push(">", ...quoteForCallout(source));
 	}
 
 	return lines.join("\n");

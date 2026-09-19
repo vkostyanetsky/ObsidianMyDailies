@@ -166,19 +166,21 @@ What comes out is the weekday the note stands for, the day before it and the day
 ```
 ````
 
-What comes out is the month the note stands for, with the month before it and the month after it on either side:
+What comes out is the month the note stands for, written out in full, with the month before it and the month after it on either side:
 
 ```text
-[[Months/Month 2026-08|AUG]] ⬅️ [[Months/Month 2026-09|SEP]] ➡️ [[Months/Month 2026-10|OCT]]
+> [!seealso] September 2026
+> [[Months/Month 2026-08|AUG]] ⬅️ SEP ➡️ [[Months/Month 2026-10|OCT]]
 ```
 
-- Anything written inside the block is rendered below the line, as Markdown.
+- **The month the note stands for is named, not linked.** The link would only lead back to the note the block is written in.
+- Anything written inside the block is rendered below the months, as Markdown, quoted into the callout.
 - A note that does not stand for a month, or does not sit in the monthly notes folder, shows a warning instead — the block only ever means something in a monthly note.
 
 ### Both of them
 
 - The months are looked for in the **monthly notes folder** and named after the **Monthly note name** setting: what stands in curly braces is the month, written the way Moment.js writes a date. `Month {YYYY-MM}` names the note `Month 2026-08`, `{MMMM YYYY}` names it `August 2026`. The same setting tells a monthly note which month it stands for.
-- The weekday and the short names of the months are written in the language Obsidian is set to.
+- The weekday, and the names of the months long and short, are written in the language Obsidian is set to.
 - **Nothing is created and nothing is written.** A day or a month the vault has no note for is still linked, as the empty link Obsidian offers to fill in.
 
 ## 🐞 Debugging output
